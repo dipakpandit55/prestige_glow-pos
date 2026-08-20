@@ -1,0 +1,945 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Prestige Glow — Admin Dashboard</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,500;1,9..144,400&family=Manrope:wght@400;500;600;700&family=Jost:wght@400;500;600&display=swap" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<style>
+  :root{
+    --ink:#1c1116; --plum:#2c1620; --gold:#c9a05e; --gold-light:#e8cf9c;
+    --cream:#faf5f1; --cream-deep:#f1e5db; --text-dark:#2a1a20; --text-muted:#7a656b;
+    --ok:#4caf6a; --warn:#c98d3a; --danger:#c25454;
+  }
+  *{box-sizing:border-box; margin:0; padding:0;}
+  body{font-family:'Manrope',sans-serif; background:var(--cream); color:var(--text-dark);}
+  h1,h2,h3{font-family:'Fraunces',serif; font-weight:500;}
+  button{font-family:'Jost',sans-serif; cursor:pointer; border:none;}
+  input,select,textarea{font-family:'Manrope',sans-serif;}
+
+  /* ---------- LOGIN SCREEN ---------- */
+  #loginScreen{
+    min-height:100vh; display:flex; align-items:center; justify-content:center;
+    background:radial-gradient(120% 90% at 50% -10%, #3a1f2b 0%, var(--ink) 55%);
+  }
+  .login-box{
+    background:rgba(250,245,241,.05); border:1px solid rgba(250,245,241,.15);
+    border-radius:8px; padding:44px; width:100%; max-width:380px; backdrop-filter:blur(6px);
+  }
+  .login-box h1{ color:var(--cream); font-style:italic; font-size:1.8rem; margin-bottom:6px; }
+  .login-box p{ color:var(--text-muted); font-size:.88rem; margin-bottom:28px; }
+  .field{ margin-bottom:16px; }
+  .field label{ display:block; font-family:'Jost',sans-serif; font-size:.7rem; letter-spacing:.1em; text-transform:uppercase; color:var(--gold-light); margin-bottom:6px; }
+  .field input, .field select{
+    width:100%; padding:11px 13px; border-radius:4px; border:1px solid rgba(250,245,241,.2);
+    background:rgba(250,245,241,.06); color:var(--cream); font-size:.92rem;
+  }
+  .field input::placeholder{ color:rgba(250,245,241,.35); }
+  .btn{
+    font-size:.82rem; letter-spacing:.08em; text-transform:uppercase; padding:13px 20px;
+    border-radius:4px; background:var(--gold-light); color:var(--ink); font-weight:600;
+    transition:background .25s; width:100%;
+  }
+  .btn:hover{ background:var(--gold); }
+  .btn.secondary{ background:transparent; border:1px solid var(--gold); color:var(--gold-light); }
+  .btn.small{ width:auto; padding:8px 14px; font-size:.72rem; }
+  .btn.danger{ background:var(--danger); color:#fff; }
+  .msg{ margin-top:14px; font-size:.85rem; text-align:center; min-height:1.2em; }
+  .msg.error{ color:#e8a3a3; }
+  .msg.ok{ color:#a3e8bb; }
+
+  /* ---------- DASHBOARD ---------- */
+  #dashboard{ display:none; }
+  header.admin-header{
+    background:var(--ink); color:var(--cream); padding:18px 28px;
+    display:flex; align-items:center; justify-content:space-between;
+  }
+  header.admin-header h1{ font-size:1.2rem; font-style:italic; color:var(--gold-light); }
+  .who{ font-size:.82rem; color:var(--text-muted); }
+  .who b{ color:var(--cream); }
+
+  .tabs{
+    display:flex; gap:4px; background:var(--cream-deep); padding:0 24px; overflow-x:auto;
+    border-bottom:1px solid rgba(42,26,32,.1);
+  }
+  .tab-btn{
+    background:transparent; padding:14px 18px; font-size:.82rem; letter-spacing:.04em;
+    color:var(--text-muted); border-bottom:2px solid transparent; white-space:nowrap;
+  }
+  .tab-btn.active{ color:var(--text-dark); border-bottom-color:var(--gold); font-weight:600; }
+
+  main{ padding:28px; max-width:1200px; margin:0 auto; }
+  .panel{ display:none; }
+  .panel.active{ display:block; }
+  .panel-head{ display:flex; align-items:center; justify-content:space-between; margin-bottom:18px; flex-wrap:wrap; gap:10px; }
+  .panel-head h2{ font-size:1.4rem; }
+
+  table{ width:100%; border-collapse:collapse; background:#fff; border-radius:6px; overflow:hidden; box-shadow:0 1px 3px rgba(42,26,32,.08); }
+  th, td{ padding:12px 14px; text-align:left; font-size:.86rem; border-bottom:1px solid rgba(42,26,32,.07); }
+  th{ background:var(--cream-deep); font-family:'Jost',sans-serif; font-size:.7rem; letter-spacing:.08em; text-transform:uppercase; color:var(--text-muted); }
+  tr:last-child td{ border-bottom:none; }
+  td select, td input{ padding:6px 8px; border-radius:4px; border:1px solid rgba(42,26,32,.15); font-size:.82rem; }
+
+  .badge{ display:inline-block; padding:3px 10px; border-radius:20px; font-size:.72rem; font-weight:600; }
+  .badge.pending{ background:#fbe8cf; color:var(--warn); }
+  .badge.confirmed, .badge.contacted{ background:#dbeee0; color:var(--ok); }
+  .badge.completed, .badge.resolved{ background:#e3e3e3; color:#666; }
+  .badge.cancelled{ background:#f6dada; color:var(--danger); }
+  .badge.admin{ background:#f1e0cf; color:#8c6d3e; }
+  .badge.staff{ background:#e3e9f1; color:#3e5c8c; }
+
+  .empty-state{ padding:40px; text-align:center; color:var(--text-muted); font-size:.9rem; }
+
+  .modal-backdrop{
+    display:none; position:fixed; inset:0; background:rgba(28,17,22,.5); z-index:50;
+    align-items:center; justify-content:center;
+  }
+  .modal-backdrop.open{ display:flex; }
+  .modal{ background:#fff; border-radius:8px; padding:30px; width:100%; max-width:420px; }
+  .modal h3{ margin-bottom:18px; font-size:1.2rem; }
+  .modal .field label{ color:var(--text-muted); }
+  .modal .field input, .modal .field select{ background:#fff; color:var(--text-dark); border:1px solid rgba(42,26,32,.2); }
+  .modal-actions{ display:flex; gap:10px; margin-top:20px; }
+  .modal-actions .btn{ width:auto; flex:1; }
+
+  .loading{ text-align:center; padding:40px; color:var(--text-muted); }
+
+  @media (max-width:640px){
+    main{ padding:16px; }
+    table{ font-size:.78rem; }
+    th, td{ padding:9px 8px; }
+  }
+</style>
+</head>
+<body>
+
+<!-- ============ LOGIN ============ -->
+<div id="loginScreen">
+  <div class="login-box">
+    <h1>Prestige Glow</h1>
+    <p>Staff &amp; admin dashboard</p>
+    <form id="loginForm">
+      <div class="field">
+        <label for="loginEmail">Email</label>
+        <input id="loginEmail" type="email" placeholder="you@prestigeglow.studio" required autocomplete="username">
+      </div>
+      <div class="field">
+        <label for="loginPassword">Password</label>
+        <input id="loginPassword" type="password" placeholder="••••••••" required autocomplete="current-password">
+      </div>
+      <button type="submit" class="btn">Log In</button>
+      <p class="msg" id="loginMsg"></p>
+    </form>
+  </div>
+</div>
+
+<!-- ============ DASHBOARD ============ -->
+<div id="dashboard">
+  <header class="admin-header">
+    <h1>Prestige Glow — Admin</h1>
+    <div style="display:flex; align-items:center; gap:16px;">
+      <span class="who">Logged in as <b id="whoName"></b> <span id="whoRole"></span></span>
+      <button class="btn secondary small" id="logoutBtn">Log Out</button>
+    </div>
+  </header>
+
+  <nav class="tabs">
+    <button class="tab-btn active" data-tab="bookings">Bookings</button>
+    <button class="tab-btn" data-tab="pos">Point of Sale</button>
+    <button class="tab-btn" data-tab="chats">Chat Requests</button>
+    <button class="tab-btn" data-tab="clients">Clients</button>
+    <button class="tab-btn" data-tab="services">Services</button>
+    <button class="tab-btn" data-tab="products">Products</button>
+    <button class="tab-btn" data-tab="employees" id="employeesTabBtn" style="display:none;">Employees</button>
+  </nav>
+
+  <main>
+    <!-- BOOKINGS -->
+    <section class="panel active" id="panel-bookings">
+      <div class="panel-head"><h2>Bookings</h2></div>
+      <div id="bookingsTableWrap" class="loading">Loading…</div>
+    </section>
+
+    <!-- CHAT REQUESTS -->
+    <section class="panel" id="panel-chats">
+      <div class="panel-head"><h2>Chat Requests</h2></div>
+      <div id="chatsTableWrap" class="loading">Loading…</div>
+    </section>
+
+    <!-- CLIENTS -->
+    <section class="panel" id="panel-clients">
+      <div class="panel-head"><h2>Clients</h2></div>
+      <div id="clientsTableWrap" class="loading">Loading…</div>
+    </section>
+
+    <!-- SERVICES -->
+    <section class="panel" id="panel-services">
+      <div class="panel-head"><h2>Services</h2></div>
+      <div id="servicesTableWrap" class="loading">Loading…</div>
+    </section>
+
+    <!-- POINT OF SALE -->
+    <section class="panel" id="panel-pos">
+      <div class="panel-head">
+        <h2>Point of Sale</h2>
+        <div>
+          <button class="btn small pos-subtab active" data-sub="newsale">New Sale</button>
+          <button class="btn small secondary pos-subtab" data-sub="history">History</button>
+        </div>
+      </div>
+
+      <!-- NEW SALE VIEW -->
+      <div id="pos-newsale">
+        <div class="field">
+          <label for="posBooking">Checkout from a booking (optional)</label>
+          <select id="posBooking">
+            <option value="">— Walk-in / no booking —</option>
+          </select>
+        </div>
+
+        <div style="display:flex; gap:14px; flex-wrap:wrap;">
+          <div class="field" style="flex:1; min-width:200px;">
+            <label for="posClientName">Client Name</label>
+            <input id="posClientName" type="text" placeholder="Client name">
+          </div>
+          <div class="field" style="flex:1; min-width:200px;">
+            <label for="posClientPhone">Phone</label>
+            <input id="posClientPhone" type="text" placeholder="Phone number">
+          </div>
+        </div>
+
+        <div style="display:flex; gap:14px; flex-wrap:wrap; margin-top:6px;">
+          <div class="field" style="flex:1; min-width:220px;">
+            <label for="posServiceSelect">Add a service</label>
+            <div style="display:flex; gap:8px;">
+              <select id="posServiceSelect" style="flex:1;"></select>
+              <button type="button" class="btn small" id="posAddServiceBtn" style="width:auto;">Add</button>
+            </div>
+          </div>
+          <div class="field" style="flex:1; min-width:220px;">
+            <label for="posProductSelect">Add a product</label>
+            <div style="display:flex; gap:8px;">
+              <select id="posProductSelect" style="flex:1;"></select>
+              <button type="button" class="btn small" id="posAddProductBtn" style="width:auto;">Add</button>
+            </div>
+          </div>
+        </div>
+
+        <div id="posCartWrap" style="margin-top:18px;">
+          <div class="empty-state">Cart is empty — add a service or product above.</div>
+        </div>
+
+        <div style="display:flex; gap:14px; flex-wrap:wrap; margin-top:18px; align-items:flex-end;">
+          <div class="field" style="width:160px;">
+            <label for="posDiscount">Discount (NRs)</label>
+            <input id="posDiscount" type="number" value="0" min="0">
+          </div>
+          <div class="field" style="width:200px;">
+            <label for="posPayment">Payment Method</label>
+            <select id="posPayment">
+              <option value="cash">Cash</option>
+              <option value="esewa">eSewa</option>
+              <option value="khalti">Khalti</option>
+              <option value="card">Card</option>
+            </select>
+          </div>
+          <div style="flex:1; text-align:right;">
+            <div style="font-size:.8rem; color:var(--text-muted);">Total</div>
+            <div style="font-family:'Fraunces',serif; font-size:1.6rem;" id="posTotal">NRs 0</div>
+          </div>
+        </div>
+
+        <button class="btn" id="posCompleteBtn" style="width:auto; margin-top:16px; padding:14px 30px;">Complete Sale</button>
+        <p class="msg" id="posMsg"></p>
+      </div>
+
+      <!-- HISTORY VIEW -->
+      <div id="pos-history" style="display:none;">
+        <div style="margin-bottom:16px; font-size:.9rem; color:var(--text-muted);">
+          Today's total: <b id="posTodayTotal" style="color:var(--text-dark); font-family:'Fraunces',serif; font-size:1.1rem;">NRs 0</b>
+        </div>
+        <div id="salesTableWrap" class="loading">Loading…</div>
+      </div>
+    </section>
+
+    <!-- PRODUCTS -->
+    <section class="panel" id="panel-products">
+      <div class="panel-head">
+        <h2>Products</h2>
+        <button class="btn small" id="addProductBtn" style="width:auto;">+ Add Product</button>
+      </div>
+      <div id="productsTableWrap" class="loading">Loading…</div>
+    </section>
+
+    <!-- EMPLOYEES -->
+    <section class="panel" id="panel-employees">
+      <div class="panel-head">
+        <h2>Employees</h2>
+        <button class="btn small" id="addEmployeeBtn" style="width:auto;">+ Add Employee</button>
+      </div>
+      <div id="employeesTableWrap" class="loading">Loading…</div>
+    </section>
+  </main>
+</div>
+
+<!-- ============ ADD PRODUCT MODAL ============ -->
+<div class="modal-backdrop" id="productModal">
+  <div class="modal">
+    <h3>Add Product</h3>
+    <form id="productForm">
+      <div class="field">
+        <label for="prodName">Product Name</label>
+        <input id="prodName" type="text" required>
+      </div>
+      <div class="field">
+        <label for="prodPrice">Price (NRs)</label>
+        <input id="prodPrice" type="number" min="0" required>
+      </div>
+      <div class="field">
+        <label for="prodStock">Starting Stock</label>
+        <input id="prodStock" type="number" min="0" value="0" required>
+      </div>
+      <p class="msg" id="productMsg"></p>
+      <div class="modal-actions">
+        <button type="button" class="btn secondary" id="cancelProductBtn">Cancel</button>
+        <button type="submit" class="btn">Add Product</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<!-- ============ ADD EMPLOYEE MODAL ============ -->
+<div class="modal-backdrop" id="employeeModal">
+  <div class="modal">
+    <h3>Add Employee</h3>
+    <form id="employeeForm">
+      <div class="field">
+        <label for="empName">Name</label>
+        <input id="empName" type="text" required>
+      </div>
+      <div class="field">
+        <label for="empEmail">Email</label>
+        <input id="empEmail" type="email" required>
+      </div>
+      <div class="field">
+        <label for="empPassword">Temporary Password</label>
+        <input id="empPassword" type="text" required minlength="6" placeholder="At least 6 characters">
+      </div>
+      <div class="field">
+        <label for="empRole">Role</label>
+        <select id="empRole">
+          <option value="staff">Staff</option>
+          <option value="admin">Admin</option>
+        </select>
+      </div>
+      <p class="msg" id="employeeMsg"></p>
+      <div class="modal-actions">
+        <button type="button" class="btn secondary" id="cancelEmployeeBtn">Cancel</button>
+        <button type="submit" class="btn">Create Login</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<script>
+  const SUPABASE_URL = 'https://qiqtytfrvnnxxbzapoyc.supabase.co';
+  const SUPABASE_KEY = 'sb_publishable_Or943UMDfQi0l8Gim6M-jQ_2A6bKgLz';
+  const sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+
+  let currentEmployee = null;
+
+  // ---------- LOGIN ----------
+  const loginForm = document.getElementById('loginForm');
+  const loginMsg = document.getElementById('loginMsg');
+
+  loginForm.addEventListener('submit', async (e) => {
+    e.preventDefault();
+    loginMsg.textContent = '';
+    loginMsg.className = 'msg';
+    const email = document.getElementById('loginEmail').value;
+    const password = document.getElementById('loginPassword').value;
+
+    const { data, error } = await sb.auth.signInWithPassword({ email, password });
+    if (error) {
+      loginMsg.textContent = 'Login failed: ' + error.message;
+      loginMsg.className = 'msg error';
+      return;
+    }
+    await checkEmployeeAndEnter();
+  });
+
+  async function checkEmployeeAndEnter(){
+    const { data: { user } } = await sb.auth.getUser();
+    if (!user) return;
+
+    const { data: emp, error } = await sb.from('employees').select('*').eq('id', user.id).single();
+    if (error || !emp || !emp.active) {
+      loginMsg.textContent = 'Your account is not authorized for staff access.';
+      loginMsg.className = 'msg error';
+      await sb.auth.signOut();
+      return;
+    }
+    currentEmployee = emp;
+    enterDashboard();
+  }
+
+  function enterDashboard(){
+    document.getElementById('loginScreen').style.display = 'none';
+    document.getElementById('dashboard').style.display = 'block';
+    document.getElementById('whoName').textContent = currentEmployee.name;
+    const roleBadge = document.getElementById('whoRole');
+    roleBadge.innerHTML = `<span class="badge ${currentEmployee.role}">${currentEmployee.role}</span>`;
+    if (currentEmployee.role === 'admin') {
+      document.getElementById('employeesTabBtn').style.display = 'inline-block';
+    }
+    loadBookings();
+    loadChats();
+    loadClients();
+    loadServices();
+    loadProducts();
+    initPOS();
+    if (currentEmployee.role === 'admin') loadEmployees();
+  }
+
+  document.getElementById('logoutBtn').addEventListener('click', async () => {
+    await sb.auth.signOut();
+    location.reload();
+  });
+
+  // Auto-login if already have a session
+  (async function(){
+    const { data: { session } } = await sb.auth.getSession();
+    if (session) await checkEmployeeAndEnter();
+  })();
+
+  // ---------- TABS ----------
+  document.querySelectorAll('.tab-btn').forEach(btn => {
+    btn.addEventListener('click', () => {
+      document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+      document.querySelectorAll('.panel').forEach(p => p.classList.remove('active'));
+      btn.classList.add('active');
+      document.getElementById('panel-' + btn.dataset.tab).classList.add('active');
+    });
+  });
+
+  // ---------- BOOKINGS ----------
+  async function loadBookings(){
+    const wrap = document.getElementById('bookingsTableWrap');
+    const { data, error } = await sb.from('bookings').select('*').order('created_at', { ascending:false });
+    if (error) { wrap.innerHTML = `<div class="empty-state">Couldn't load bookings.</div>`; return; }
+    if (!data.length) { wrap.innerHTML = `<div class="empty-state">No bookings yet.</div>`; return; }
+
+    wrap.innerHTML = `<table><thead><tr>
+      <th>Name</th><th>Phone</th><th>Service</th><th>Notes</th><th>Received</th><th>Status</th>
+    </tr></thead><tbody>${data.map(b => `
+      <tr>
+        <td>${escapeHtml(b.client_name)}</td>
+        <td>${escapeHtml(b.client_phone)}</td>
+        <td>${escapeHtml(b.service || '—')}</td>
+        <td>${escapeHtml(b.notes || '—')}</td>
+        <td>${formatDate(b.created_at)}</td>
+        <td>
+          <select data-id="${b.id}" class="booking-status">
+            ${['pending','confirmed','completed','cancelled'].map(s =>
+              `<option value="${s}" ${s===b.status?'selected':''}>${s}</option>`).join('')}
+          </select>
+        </td>
+      </tr>`).join('')}</tbody></table>`;
+
+    wrap.querySelectorAll('.booking-status').forEach(sel => {
+      sel.addEventListener('change', async () => {
+        await sb.from('bookings').update({ status: sel.value }).eq('id', sel.dataset.id);
+      });
+    });
+  }
+
+  // ---------- POINT OF SALE ----------
+  let cart = [];              // { type, name, unit_price, qty }
+  let allServices = [];
+  let allProducts = [];
+  let selectedBookingId = null;
+
+  function initPOS(){
+    // sub-tab toggle (New Sale / History)
+    document.querySelectorAll('.pos-subtab').forEach(btn => {
+      btn.addEventListener('click', () => {
+        document.querySelectorAll('.pos-subtab').forEach(b => { b.classList.remove('active'); b.classList.add('secondary'); });
+        btn.classList.add('active'); btn.classList.remove('secondary');
+        const isHistory = btn.dataset.sub === 'history';
+        document.getElementById('pos-newsale').style.display = isHistory ? 'none' : 'block';
+        document.getElementById('pos-history').style.display = isHistory ? 'block' : 'none';
+        if (isHistory) loadSalesHistory();
+      });
+    });
+
+    document.getElementById('posAddServiceBtn').addEventListener('click', () => {
+      const sel = document.getElementById('posServiceSelect');
+      const svc = allServices.find(s => s.id === sel.value);
+      if (svc) addToCart('service', svc.name, Number(svc.price) || 0);
+    });
+    document.getElementById('posAddProductBtn').addEventListener('click', () => {
+      const sel = document.getElementById('posProductSelect');
+      const prod = allProducts.find(p => p.id === sel.value);
+      if (prod) addToCart('product', prod.name, Number(prod.price) || 0, prod.id);
+    });
+    document.getElementById('posDiscount').addEventListener('input', renderCart);
+    document.getElementById('posBooking').addEventListener('change', onBookingSelected);
+    document.getElementById('posCompleteBtn').addEventListener('click', completeSale);
+
+    loadPOSBookingOptions();
+    loadPOSPickers();
+  }
+
+  async function loadPOSBookingOptions(){
+    const sel = document.getElementById('posBooking');
+    const { data, error } = await sb.from('bookings').select('*')
+      .in('status', ['pending','confirmed']).order('created_at', { ascending:false });
+    sel.innerHTML = `<option value="">— Walk-in / no booking —</option>`;
+    if (error || !data) return;
+    data.forEach(b => {
+      const opt = document.createElement('option');
+      opt.value = b.id;
+      opt.textContent = `${b.client_name} — ${b.service || 'No service noted'} — ${formatDate(b.created_at)}`;
+      opt.dataset.name = b.client_name;
+      opt.dataset.phone = b.client_phone;
+      opt.dataset.service = b.service || '';
+      sel.appendChild(opt);
+    });
+  }
+
+  function onBookingSelected(){
+    const sel = document.getElementById('posBooking');
+    const opt = sel.selectedOptions[0];
+    if (!opt || !opt.value) {
+      selectedBookingId = null;
+      return;
+    }
+    selectedBookingId = opt.value;
+    document.getElementById('posClientName').value = opt.dataset.name || '';
+    document.getElementById('posClientPhone').value = opt.dataset.phone || '';
+    // convenience: try to auto-add the matching service to the cart
+    const match = allServices.find(s => s.name.trim() === (opt.dataset.service || '').trim());
+    if (match && !cart.some(c => c.type === 'service' && c.name === match.name)) {
+      addToCart('service', match.name, Number(match.price) || 0);
+    }
+  }
+
+  async function loadPOSPickers(){
+    const { data: services } = await sb.from('services').select('*').eq('active', true);
+    allServices = services || [];
+    const svcSel = document.getElementById('posServiceSelect');
+    svcSel.innerHTML = allServices.map(s => `<option value="${s.id}">${escapeHtml(s.name)} — NRs ${s.price || 0}</option>`).join('');
+
+    const { data: products } = await sb.from('products').select('*').eq('active', true);
+    allProducts = products || [];
+    const prodSel = document.getElementById('posProductSelect');
+    prodSel.innerHTML = allProducts.length
+      ? allProducts.map(p => `<option value="${p.id}">${escapeHtml(p.name)} — NRs ${p.price} (${p.stock_qty} in stock)</option>`).join('')
+      : `<option value="">No products yet</option>`;
+  }
+
+  function addToCart(type, name, unit_price, product_id){
+    const existing = cart.find(c => c.type === type && c.name === name);
+    if (existing) existing.qty += 1;
+    else cart.push({ type, name, unit_price, qty: 1, product_id: product_id || null });
+    renderCart();
+  }
+
+  function renderCart(){
+    const wrap = document.getElementById('posCartWrap');
+    if (!cart.length) {
+      wrap.innerHTML = `<div class="empty-state">Cart is empty — add a service or product above.</div>`;
+      updateTotal();
+      return;
+    }
+    wrap.innerHTML = `<table><thead><tr>
+      <th>Item</th><th>Type</th><th>Unit Price</th><th>Qty</th><th>Line Total</th><th></th>
+    </tr></thead><tbody>${cart.map((c, i) => `
+      <tr>
+        <td>${escapeHtml(c.name)}</td>
+        <td>${c.type}</td>
+        <td><input type="number" min="0" value="${c.unit_price}" data-i="${i}" class="cart-price" style="width:90px;"></td>
+        <td><input type="number" min="1" value="${c.qty}" data-i="${i}" class="cart-qty" style="width:60px;"></td>
+        <td>NRs ${(c.unit_price * c.qty).toLocaleString()}</td>
+        <td><button type="button" class="btn small secondary cart-remove" data-i="${i}">✕</button></td>
+      </tr>`).join('')}</tbody></table>`;
+
+    wrap.querySelectorAll('.cart-price').forEach(inp => {
+      inp.addEventListener('input', () => { cart[inp.dataset.i].unit_price = Number(inp.value) || 0; renderCart(); });
+    });
+    wrap.querySelectorAll('.cart-qty').forEach(inp => {
+      inp.addEventListener('input', () => { cart[inp.dataset.i].qty = Math.max(1, Number(inp.value) || 1); renderCart(); });
+    });
+    wrap.querySelectorAll('.cart-remove').forEach(btn => {
+      btn.addEventListener('click', () => { cart.splice(btn.dataset.i, 1); renderCart(); });
+    });
+    updateTotal();
+  }
+
+  function updateTotal(){
+    const subtotal = cart.reduce((sum, c) => sum + c.unit_price * c.qty, 0);
+    const discount = Number(document.getElementById('posDiscount').value) || 0;
+    const total = Math.max(0, subtotal - discount);
+    document.getElementById('posTotal').textContent = `NRs ${total.toLocaleString()}`;
+    return { subtotal, discount, total };
+  }
+
+  async function completeSale(){
+    const msg = document.getElementById('posMsg');
+    msg.textContent = '';
+    msg.className = 'msg';
+
+    if (!cart.length) {
+      msg.textContent = 'Add at least one service or product first.';
+      msg.className = 'msg error';
+      return;
+    }
+
+    const { subtotal, discount, total } = updateTotal();
+    const clientName = document.getElementById('posClientName').value || 'Walk-in';
+    const clientPhone = document.getElementById('posClientPhone').value || '';
+    const payment = document.getElementById('posPayment').value;
+    const btn = document.getElementById('posCompleteBtn');
+    btn.disabled = true;
+    btn.textContent = 'Processing…';
+
+    try {
+      const { data: sale, error: saleErr } = await sb.from('sales').insert({
+        booking_id: selectedBookingId,
+        client_name: clientName,
+        client_phone: clientPhone,
+        subtotal, discount, total,
+        payment_method: payment,
+        staff_id: currentEmployee.id
+      }).select().single();
+      if (saleErr) throw saleErr;
+
+      const itemRows = cart.map(c => ({
+        sale_id: sale.id,
+        item_type: c.type,
+        item_name: c.name,
+        unit_price: c.unit_price,
+        quantity: c.qty,
+        line_total: c.unit_price * c.qty
+      }));
+      const { error: itemsErr } = await sb.from('sale_items').insert(itemRows);
+      if (itemsErr) throw itemsErr;
+
+      // decrement stock for any products sold
+      for (const c of cart) {
+        if (c.type === 'product' && c.product_id) {
+          const prod = allProducts.find(p => p.id === c.product_id);
+          if (prod) {
+            await sb.from('products').update({ stock_qty: Math.max(0, prod.stock_qty - c.qty) }).eq('id', c.product_id);
+          }
+        }
+      }
+
+      // mark the linked booking as completed
+      if (selectedBookingId) {
+        await sb.from('bookings').update({ status: 'completed' }).eq('id', selectedBookingId);
+      }
+
+      msg.textContent = 'Sale completed!';
+      msg.className = 'msg ok';
+      cart = [];
+      selectedBookingId = null;
+      document.getElementById('posClientName').value = '';
+      document.getElementById('posClientPhone').value = '';
+      document.getElementById('posDiscount').value = 0;
+      document.getElementById('posBooking').value = '';
+      renderCart();
+      loadPOSBookingOptions();
+      loadPOSPickers();
+      loadBookings();
+    } catch (err) {
+      console.error('Sale failed:', err);
+      msg.textContent = 'Something went wrong completing this sale.';
+      msg.className = 'msg error';
+    } finally {
+      btn.disabled = false;
+      btn.textContent = 'Complete Sale';
+    }
+  }
+
+  async function loadSalesHistory(){
+    const wrap = document.getElementById('salesTableWrap');
+    const { data: sales, error } = await sb.from('sales').select('*').order('created_at', { ascending:false });
+    if (error) { wrap.innerHTML = `<div class="empty-state">Couldn't load sales.</div>`; return; }
+    if (!sales.length) { wrap.innerHTML = `<div class="empty-state">No sales yet.</div>`; document.getElementById('posTodayTotal').textContent = 'NRs 0'; return; }
+
+    const ids = sales.map(s => s.id);
+    const { data: items } = await sb.from('sale_items').select('*').in('sale_id', ids);
+    const itemsBySale = {};
+    (items || []).forEach(it => {
+      if (!itemsBySale[it.sale_id]) itemsBySale[it.sale_id] = [];
+      itemsBySale[it.sale_id].push(`${it.item_name} x${it.quantity}`);
+    });
+
+    const todayStr = new Date().toDateString();
+    const todayTotal = sales
+      .filter(s => new Date(s.created_at).toDateString() === todayStr)
+      .reduce((sum, s) => sum + Number(s.total), 0);
+    document.getElementById('posTodayTotal').textContent = `NRs ${todayTotal.toLocaleString()}`;
+
+    wrap.innerHTML = `<table><thead><tr>
+      <th>Date</th><th>Client</th><th>Items</th><th>Payment</th><th>Total</th>
+    </tr></thead><tbody>${sales.map(s => `
+      <tr>
+        <td>${formatDate(s.created_at)}</td>
+        <td>${escapeHtml(s.client_name || 'Walk-in')}</td>
+        <td>${escapeHtml((itemsBySale[s.id] || []).join(', '))}</td>
+        <td style="text-transform:capitalize;">${escapeHtml(s.payment_method)}</td>
+        <td>NRs ${Number(s.total).toLocaleString()}</td>
+      </tr>`).join('')}</tbody></table>`;
+  }
+
+  // ---------- PRODUCTS ----------
+  async function loadProducts(){
+    const wrap = document.getElementById('productsTableWrap');
+    const { data, error } = await sb.from('products').select('*').order('created_at', { ascending:true });
+    if (error) { wrap.innerHTML = `<div class="empty-state">Couldn't load products.</div>`; return; }
+    if (!data.length) { wrap.innerHTML = `<div class="empty-state">No products yet. Click "+ Add Product" to start your retail catalog.</div>`; return; }
+
+    wrap.innerHTML = `<table><thead><tr>
+      <th>Name</th><th>Price (NRs)</th><th>Stock</th><th>Active</th><th></th>
+    </tr></thead><tbody>${data.map(p => `
+      <tr data-id="${p.id}">
+        <td><input class="prod-name" value="${escapeAttr(p.name)}"></td>
+        <td><input type="number" class="prod-price" value="${p.price}" style="width:100px;"></td>
+        <td><input type="number" class="prod-stock" value="${p.stock_qty}" style="width:80px;"></td>
+        <td><input type="checkbox" class="prod-active" ${p.active ? 'checked' : ''}></td>
+        <td><button class="btn small prod-save">Save</button></td>
+      </tr>`).join('')}</tbody></table>`;
+
+    wrap.querySelectorAll('.prod-save').forEach(btn => {
+      btn.addEventListener('click', async () => {
+        const row = btn.closest('tr');
+        const id = row.dataset.id;
+        btn.textContent = 'Saving…';
+        await sb.from('products').update({
+          name: row.querySelector('.prod-name').value,
+          price: Number(row.querySelector('.prod-price').value) || 0,
+          stock_qty: Number(row.querySelector('.prod-stock').value) || 0,
+          active: row.querySelector('.prod-active').checked
+        }).eq('id', id);
+        btn.textContent = 'Saved ✓';
+        setTimeout(() => { btn.textContent = 'Save'; loadPOSPickers(); }, 1200);
+      });
+    });
+  }
+
+  const productModal = document.getElementById('productModal');
+  document.getElementById('addProductBtn').addEventListener('click', () => {
+    productModal.classList.add('open');
+  });
+  document.getElementById('cancelProductBtn').addEventListener('click', () => {
+    productModal.classList.remove('open');
+    document.getElementById('productForm').reset();
+    document.getElementById('productMsg').textContent = '';
+  });
+  document.getElementById('productForm').addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const msg = document.getElementById('productMsg');
+    msg.textContent = 'Adding…';
+    msg.className = 'msg';
+    const { error } = await sb.from('products').insert({
+      name: document.getElementById('prodName').value,
+      price: Number(document.getElementById('prodPrice').value) || 0,
+      stock_qty: Number(document.getElementById('prodStock').value) || 0
+    });
+    if (error) {
+      msg.textContent = 'Something went wrong adding this product.';
+      msg.className = 'msg error';
+      return;
+    }
+    msg.textContent = 'Product added!';
+    msg.className = 'msg ok';
+    setTimeout(() => {
+      productModal.classList.remove('open');
+      document.getElementById('productForm').reset();
+      msg.textContent = '';
+      loadProducts();
+      loadPOSPickers();
+    }, 800);
+  });
+
+  // ---------- CHAT REQUESTS ----------
+  async function loadChats(){
+    const wrap = document.getElementById('chatsTableWrap');
+    const { data, error } = await sb.from('chat_requests').select('*').order('created_at', { ascending:false });
+    if (error) { wrap.innerHTML = `<div class="empty-state">Couldn't load chat requests.</div>`; return; }
+    if (!data.length) { wrap.innerHTML = `<div class="empty-state">No chat requests yet.</div>`; return; }
+
+    wrap.innerHTML = `<table><thead><tr>
+      <th>Name</th><th>Phone</th><th>Message</th><th>Received</th><th>Status</th>
+    </tr></thead><tbody>${data.map(c => `
+      <tr>
+        <td>${escapeHtml(c.name || '—')}</td>
+        <td>${escapeHtml(c.phone || '—')}</td>
+        <td>${escapeHtml(c.message || '—')}</td>
+        <td>${formatDate(c.created_at)}</td>
+        <td>
+          <select data-id="${c.id}" class="chat-status">
+            ${['pending','contacted','resolved'].map(s =>
+              `<option value="${s}" ${s===c.status?'selected':''}>${s}</option>`).join('')}
+          </select>
+        </td>
+      </tr>`).join('')}</tbody></table>`;
+
+    wrap.querySelectorAll('.chat-status').forEach(sel => {
+      sel.addEventListener('change', async () => {
+        await sb.from('chat_requests').update({ status: sel.value }).eq('id', sel.dataset.id);
+      });
+    });
+  }
+
+  // ---------- CLIENTS ----------
+  async function loadClients(){
+    const wrap = document.getElementById('clientsTableWrap');
+    const { data, error } = await sb.from('clients').select('*').order('created_at', { ascending:false });
+    if (error) { wrap.innerHTML = `<div class="empty-state">Couldn't load clients.</div>`; return; }
+    if (!data.length) { wrap.innerHTML = `<div class="empty-state">No clients yet. They'll build up here as you add them, or you can track repeat bookings manually.</div>`; return; }
+
+    wrap.innerHTML = `<table><thead><tr>
+      <th>Name</th><th>Phone</th><th>Email</th><th>Notes</th>
+    </tr></thead><tbody>${data.map(c => `
+      <tr>
+        <td>${escapeHtml(c.name)}</td>
+        <td>${escapeHtml(c.phone || '—')}</td>
+        <td>${escapeHtml(c.email || '—')}</td>
+        <td>${escapeHtml(c.notes || '—')}</td>
+      </tr>`).join('')}</tbody></table>`;
+  }
+
+  // ---------- SERVICES ----------
+  async function loadServices(){
+    const wrap = document.getElementById('servicesTableWrap');
+    const { data, error } = await sb.from('services').select('*').order('created_at', { ascending:true });
+    if (error) { wrap.innerHTML = `<div class="empty-state">Couldn't load services.</div>`; return; }
+
+    wrap.innerHTML = `<table><thead><tr>
+      <th>Name</th><th>Description</th><th>Price</th><th>Active</th><th></th>
+    </tr></thead><tbody>${data.map(s => `
+      <tr data-id="${s.id}">
+        <td><input class="svc-name" value="${escapeAttr(s.name)}"></td>
+        <td><input class="svc-desc" value="${escapeAttr(s.description || '')}" style="width:100%;"></td>
+        <td><input class="svc-price" value="${escapeAttr(s.price_npr || '')}"></td>
+        <td><input type="checkbox" class="svc-active" ${s.active ? 'checked' : ''}></td>
+        <td><button class="btn small svc-save">Save</button></td>
+      </tr>`).join('')}</tbody></table>`;
+
+    wrap.querySelectorAll('.svc-save').forEach(btn => {
+      btn.addEventListener('click', async () => {
+        const row = btn.closest('tr');
+        const id = row.dataset.id;
+        btn.textContent = 'Saving…';
+        await sb.from('services').update({
+          name: row.querySelector('.svc-name').value,
+          description: row.querySelector('.svc-desc').value,
+          price_npr: row.querySelector('.svc-price').value,
+          active: row.querySelector('.svc-active').checked
+        }).eq('id', id);
+        btn.textContent = 'Saved ✓';
+        setTimeout(() => btn.textContent = 'Save', 1200);
+      });
+    });
+  }
+
+  // ---------- EMPLOYEES ----------
+  async function loadEmployees(){
+    const wrap = document.getElementById('employeesTableWrap');
+    const { data, error } = await sb.from('employees').select('*').order('created_at', { ascending:true });
+    if (error) { wrap.innerHTML = `<div class="empty-state">Couldn't load employees.</div>`; return; }
+
+    wrap.innerHTML = `<table><thead><tr>
+      <th>Name</th><th>Email</th><th>Role</th><th>Active</th><th></th>
+    </tr></thead><tbody>${data.map(e => `
+      <tr data-id="${e.id}">
+        <td>${escapeHtml(e.name)}</td>
+        <td>${escapeHtml(e.email)}</td>
+        <td>
+          <select class="emp-role" ${e.id === currentEmployee.id ? 'disabled' : ''}>
+            <option value="staff" ${e.role==='staff'?'selected':''}>Staff</option>
+            <option value="admin" ${e.role==='admin'?'selected':''}>Admin</option>
+          </select>
+        </td>
+        <td><input type="checkbox" class="emp-active" ${e.active?'checked':''} ${e.id === currentEmployee.id ? 'disabled' : ''}></td>
+        <td><button class="btn small emp-save" ${e.id === currentEmployee.id ? 'disabled' : ''}>Save</button></td>
+      </tr>`).join('')}</tbody></table>`;
+
+    wrap.querySelectorAll('.emp-save').forEach(btn => {
+      btn.addEventListener('click', async () => {
+        const row = btn.closest('tr');
+        const id = row.dataset.id;
+        btn.textContent = 'Saving…';
+        await sb.from('employees').update({
+          role: row.querySelector('.emp-role').value,
+          active: row.querySelector('.emp-active').checked
+        }).eq('id', id);
+        btn.textContent = 'Saved ✓';
+        setTimeout(() => btn.textContent = 'Save', 1200);
+      });
+    });
+  }
+
+  // ---------- ADD EMPLOYEE MODAL ----------
+  const employeeModal = document.getElementById('employeeModal');
+  document.getElementById('addEmployeeBtn').addEventListener('click', () => {
+    employeeModal.classList.add('open');
+  });
+  document.getElementById('cancelEmployeeBtn').addEventListener('click', () => {
+    employeeModal.classList.remove('open');
+    document.getElementById('employeeForm').reset();
+    document.getElementById('employeeMsg').textContent = '';
+  });
+
+  document.getElementById('employeeForm').addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const msg = document.getElementById('employeeMsg');
+    msg.textContent = 'Creating…';
+    msg.className = 'msg';
+
+    const { data, error } = await sb.functions.invoke('create-employee', {
+      body: {
+        name: document.getElementById('empName').value,
+        email: document.getElementById('empEmail').value,
+        password: document.getElementById('empPassword').value,
+        role: document.getElementById('empRole').value
+      }
+    });
+
+    if (error || data?.error) {
+      msg.textContent = (data && data.error) ? data.error : 'Something went wrong creating this account.';
+      msg.className = 'msg error';
+      return;
+    }
+
+    msg.textContent = 'Employee created!';
+    msg.className = 'msg ok';
+    setTimeout(() => {
+      employeeModal.classList.remove('open');
+      document.getElementById('employeeForm').reset();
+      msg.textContent = '';
+      loadEmployees();
+    }, 900);
+  });
+
+  // ---------- HELPERS ----------
+  function formatDate(iso){
+    if (!iso) return '—';
+    const d = new Date(iso);
+    return d.toLocaleDateString(undefined, { month:'short', day:'numeric', year:'numeric' }) +
+      ' · ' + d.toLocaleTimeString(undefined, { hour:'numeric', minute:'2-digit' });
+  }
+  function escapeHtml(str){
+    if (str === null || str === undefined) return '';
+    return String(str).replace(/[&<>"']/g, m => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]));
+  }
+  function escapeAttr(str){ return escapeHtml(str); }
+</script>
+
+</body>
+</html>
