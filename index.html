@@ -111,6 +111,47 @@
     table{ font-size:.78rem; }
     th, td{ padding:9px 8px; }
   }
+  /* ---------- POS: dark, high-contrast builder ---------- */
+  #pos-newsale{
+    background: linear-gradient(135deg, var(--plum), var(--ink));
+    border-radius: 10px;
+    padding: 28px;
+    color: var(--cream);
+  }
+  #pos-newsale .pos-section-title{
+    font-family:'Jost',sans-serif; text-transform:uppercase; letter-spacing:.12em;
+    font-size:.72rem; color: var(--gold-light); margin: 26px 0 12px;
+    padding-bottom:8px; border-bottom:1px solid rgba(250,245,241,.15);
+  }
+  #pos-newsale .pos-section-title:first-child{ margin-top:0; }
+  #pos-newsale .field label{ color: var(--gold-light); }
+  #pos-newsale .field input,
+  #pos-newsale .field select{
+    background: rgba(250,245,241,.07);
+    border: 1px solid rgba(250,245,241,.2);
+    color: var(--cream);
+  }
+  #pos-newsale .field input::placeholder{ color: rgba(250,245,241,.4); }
+  #pos-newsale .field input:focus,
+  #pos-newsale .field select:focus{ outline:none; border-color: var(--gold); }
+  #pos-newsale table{ background: rgba(250,245,241,.05); color: var(--cream); box-shadow:none; }
+  #pos-newsale th{ background: rgba(250,245,241,.09); color: var(--gold-light); }
+  #pos-newsale td{ border-bottom-color: rgba(250,245,241,.12); }
+  #pos-newsale td input{
+    background: rgba(250,245,241,.08); border:1px solid rgba(250,245,241,.2); color:var(--cream);
+    border-radius:4px; padding:6px 8px;
+  }
+  #pos-newsale .empty-state{ color: rgba(250,245,241,.55); background:rgba(250,245,241,.03); border-radius:6px; }
+  #pos-newsale .cart-remove{
+    background: rgba(194,84,84,.18); color:#f0b3b3; border:1px solid rgba(194,84,84,.4);
+  }
+  #pos-newsale .cart-remove:hover{ background: rgba(194,84,84,.32); }
+  .pos-total-box{
+    background: rgba(250,245,241,.06); border:1px solid rgba(250,245,241,.15);
+    border-radius:8px; padding:16px 20px; text-align:right;
+  }
+  .pos-total-box .pos-total-label{ font-size:.78rem; color: rgba(250,245,241,.6); letter-spacing:.06em; text-transform:uppercase; }
+  .pos-total-box .pos-total-value{ font-family:'Fraunces',serif; font-size:2rem; color: var(--gold-light); line-height:1.2; }
 </style>
 </head>
 <body>
@@ -192,6 +233,7 @@
 
       <!-- NEW SALE VIEW -->
       <div id="pos-newsale">
+        <div class="pos-section-title">1 · Client &amp; Booking</div>
         <div class="field">
           <label for="posBooking">Checkout from a booking (optional)</label>
           <select id="posBooking">
@@ -210,7 +252,8 @@
           </div>
         </div>
 
-        <div style="display:flex; gap:14px; flex-wrap:wrap; margin-top:6px;">
+        <div class="pos-section-title">2 · Add Services &amp; Products</div>
+        <div style="display:flex; gap:14px; flex-wrap:wrap;">
           <div class="field" style="flex:1; min-width:220px;">
             <label for="posServiceSelect">Add a service</label>
             <div style="display:flex; gap:8px;">
@@ -227,11 +270,13 @@
           </div>
         </div>
 
-        <div id="posCartWrap" style="margin-top:18px;">
+        <div class="pos-section-title">3 · Cart</div>
+        <div id="posCartWrap">
           <div class="empty-state">Cart is empty — add a service or product above.</div>
         </div>
 
-        <div style="display:flex; gap:14px; flex-wrap:wrap; margin-top:18px; align-items:flex-end;">
+        <div class="pos-section-title">4 · Checkout</div>
+        <div style="display:flex; gap:14px; flex-wrap:wrap; align-items:flex-end;">
           <div class="field" style="width:160px;">
             <label for="posDiscount">Discount (NRs)</label>
             <input id="posDiscount" type="number" value="0" min="0">
@@ -245,13 +290,13 @@
               <option value="card">Card</option>
             </select>
           </div>
-          <div style="flex:1; text-align:right;">
-            <div style="font-size:.8rem; color:var(--text-muted);">Total</div>
-            <div style="font-family:'Fraunces',serif; font-size:1.6rem;" id="posTotal">NRs 0</div>
+          <div class="pos-total-box" style="flex:1;">
+            <div class="pos-total-label">Total Due</div>
+            <div class="pos-total-value" id="posTotal">NRs 0</div>
           </div>
         </div>
 
-        <button class="btn" id="posCompleteBtn" style="width:auto; margin-top:16px; padding:14px 30px;">Complete Sale</button>
+        <button class="btn" id="posCompleteBtn" style="width:auto; margin-top:20px; padding:14px 30px;">Complete Sale</button>
         <p class="msg" id="posMsg"></p>
       </div>
 
