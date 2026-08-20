@@ -1,0 +1,1500 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Prestige Glow — Admin Dashboard</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,500;1,9..144,400&family=Manrope:wght@400;500;600;700&family=Jost:wght@400;500;600&display=swap" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<style>
+  :root{
+    --ink:#1c1116; --plum:#2c1620; --gold:#c9a05e; --gold-light:#e8cf9c;
+    --cream:#faf5f1; --cream-deep:#f1e5db; --text-dark:#2a1a20; --text-muted:#7a656b;
+    --ok:#4caf6a; --warn:#c98d3a; --danger:#c25454;
+  }
+  *{box-sizing:border-box; margin:0; padding:0;}
+  body{font-family:'Manrope',sans-serif; background:var(--cream); color:var(--text-dark);}
+  h1,h2,h3{font-family:'Fraunces',serif; font-weight:500;}
+  button{font-family:'Jost',sans-serif; cursor:pointer; border:none;}
+  input,select,textarea{font-family:'Manrope',sans-serif;}
+
+  /* ---------- LOGIN SCREEN ---------- */
+  #loginScreen{
+    min-height:100vh; display:flex; align-items:center; justify-content:center;
+    background:radial-gradient(120% 90% at 50% -10%, #3a1f2b 0%, var(--ink) 55%);
+  }
+  .login-box{
+    background:rgba(250,245,241,.05); border:1px solid rgba(250,245,241,.15);
+    border-radius:8px; padding:44px; width:100%; max-width:380px; backdrop-filter:blur(6px);
+  }
+  .login-box h1{ color:var(--cream); font-style:italic; font-size:1.8rem; margin-bottom:6px; }
+  .login-box p{ color:var(--text-muted); font-size:.88rem; margin-bottom:28px; }
+  .field{ margin-bottom:16px; }
+  .field label{ display:block; font-family:'Jost',sans-serif; font-size:.7rem; letter-spacing:.1em; text-transform:uppercase; color:var(--gold-light); margin-bottom:6px; }
+  .field input, .field select{
+    width:100%; padding:11px 13px; border-radius:4px; border:1px solid rgba(250,245,241,.2);
+    background:rgba(250,245,241,.06); color:var(--cream); font-size:.92rem;
+  }
+  .field input::placeholder{ color:rgba(250,245,241,.35); }
+  .btn{
+    font-size:.82rem; letter-spacing:.08em; text-transform:uppercase; padding:13px 20px;
+    border-radius:4px; background:var(--gold-light); color:var(--ink); font-weight:600;
+    transition:background .25s; width:100%;
+  }
+  .btn:hover{ background:var(--gold); }
+  .btn.secondary{ background:transparent; border:1px solid var(--gold); color:var(--gold-light); }
+  .btn.small{ width:auto; padding:8px 14px; font-size:.72rem; }
+  .btn.danger{ background:var(--danger); color:#fff; }
+  .msg{ margin-top:14px; font-size:.85rem; text-align:center; min-height:1.2em; }
+  .msg.error{ color:#e8a3a3; }
+  .msg.ok{ color:#a3e8bb; }
+
+  /* ---------- DASHBOARD ---------- */
+  #dashboard{ display:none; }
+  header.admin-header{
+    background:var(--ink); color:var(--cream); padding:18px 28px;
+    display:flex; align-items:center; justify-content:space-between;
+  }
+  header.admin-header h1{ font-size:1.2rem; font-style:italic; color:var(--gold-light); }
+  .who{ font-size:.82rem; color:var(--text-muted); }
+  .who b{ color:var(--cream); }
+
+  .tabs{
+    display:flex; gap:4px; background:var(--cream-deep); padding:0 24px; overflow-x:auto;
+    border-bottom:1px solid rgba(42,26,32,.1);
+  }
+  .tab-btn{
+    background:transparent; padding:14px 18px; font-size:.82rem; letter-spacing:.04em;
+    color:var(--text-muted); border-bottom:2px solid transparent; white-space:nowrap;
+  }
+  .tab-btn.active{ color:var(--text-dark); border-bottom-color:var(--gold); font-weight:600; }
+
+  main{ padding:28px; max-width:1200px; margin:0 auto; }
+  .panel{ display:none; }
+  .panel.active{ display:block; }
+  .panel-head{ display:flex; align-items:center; justify-content:space-between; margin-bottom:18px; flex-wrap:wrap; gap:10px; }
+  .panel-head h2{ font-size:1.4rem; }
+
+  table{ width:100%; border-collapse:collapse; background:#fff; border-radius:6px; overflow:hidden; box-shadow:0 1px 3px rgba(42,26,32,.08); }
+  th, td{ padding:12px 14px; text-align:left; font-size:.86rem; border-bottom:1px solid rgba(42,26,32,.07); }
+  th{ background:var(--cream-deep); font-family:'Jost',sans-serif; font-size:.7rem; letter-spacing:.08em; text-transform:uppercase; color:var(--text-muted); }
+  tr:last-child td{ border-bottom:none; }
+  td select, td input{ padding:6px 8px; border-radius:4px; border:1px solid rgba(42,26,32,.15); font-size:.82rem; }
+
+  .badge{ display:inline-block; padding:3px 10px; border-radius:20px; font-size:.72rem; font-weight:600; }
+  .badge.pending{ background:#fbe8cf; color:var(--warn); }
+  .badge.confirmed, .badge.contacted{ background:#dbeee0; color:var(--ok); }
+  .badge.completed, .badge.resolved{ background:#e3e3e3; color:#666; }
+  .badge.cancelled{ background:#f6dada; color:var(--danger); }
+  .badge.admin{ background:#f1e0cf; color:#8c6d3e; }
+  .badge.staff{ background:#e3e9f1; color:#3e5c8c; }
+
+  .empty-state{ padding:40px; text-align:center; color:var(--text-muted); font-size:.9rem; }
+
+  .modal-backdrop{
+    display:none; position:fixed; inset:0; background:rgba(28,17,22,.5); z-index:50;
+    align-items:center; justify-content:center;
+  }
+  .modal-backdrop.open{ display:flex; }
+  .modal{ background:#fff; border-radius:8px; padding:30px; width:100%; max-width:420px; }
+  .modal h3{ margin-bottom:18px; font-size:1.2rem; }
+  .modal .field label{ color:var(--text-muted); }
+  .modal .field input, .modal .field select{ background:#fff; color:var(--text-dark); border:1px solid rgba(42,26,32,.2); }
+  .modal-actions{ display:flex; gap:10px; margin-top:20px; }
+  .modal-actions .btn{ width:auto; flex:1; }
+
+  .loading{ text-align:center; padding:40px; color:var(--text-muted); }
+
+  @media (max-width:640px){
+    main{ padding:16px; }
+    table{ font-size:.78rem; }
+    th, td{ padding:9px 8px; }
+  }
+  /* ---------- POS: dark, high-contrast builder ---------- */
+  #pos-newsale{
+    background: linear-gradient(135deg, var(--plum), var(--ink));
+    border-radius: 10px;
+    padding: 28px;
+    color: var(--cream);
+  }
+  #pos-newsale .pos-section-title{
+    font-family:'Jost',sans-serif; text-transform:uppercase; letter-spacing:.12em;
+    font-size:.72rem; color: var(--gold-light); margin: 26px 0 12px;
+    padding-bottom:8px; border-bottom:1px solid rgba(250,245,241,.15);
+  }
+  #pos-newsale .pos-section-title:first-child{ margin-top:0; }
+  #pos-newsale .field label{ color: var(--gold-light); }
+  #pos-newsale .field input,
+  #pos-newsale .field select{
+    background: rgba(250,245,241,.07);
+    border: 1px solid rgba(250,245,241,.2);
+    color: var(--cream);
+  }
+  #pos-newsale .field input::placeholder{ color: rgba(250,245,241,.4); }
+  #pos-newsale .field input:focus,
+  #pos-newsale .field select:focus{ outline:none; border-color: var(--gold); }
+  #pos-newsale table{ background: rgba(250,245,241,.05); color: var(--cream); box-shadow:none; }
+  #pos-newsale th{ background: rgba(250,245,241,.09); color: var(--gold-light); }
+  #pos-newsale td{ border-bottom-color: rgba(250,245,241,.12); }
+  #pos-newsale td input{
+    background: rgba(250,245,241,.08); border:1px solid rgba(250,245,241,.2); color:var(--cream);
+    border-radius:4px; padding:6px 8px;
+  }
+  #pos-newsale .empty-state{ color: rgba(250,245,241,.55); background:rgba(250,245,241,.03); border-radius:6px; }
+  #pos-newsale .cart-remove{
+    background: rgba(194,84,84,.18); color:#f0b3b3; border:1px solid rgba(194,84,84,.4);
+  }
+  #pos-newsale .cart-remove:hover{ background: rgba(194,84,84,.32); }
+  .pos-total-box{
+    background: rgba(250,245,241,.06); border:1px solid rgba(250,245,241,.15);
+    border-radius:8px; padding:16px 20px; text-align:right;
+  }
+  .pos-total-box .pos-total-label{ font-size:.78rem; color: rgba(250,245,241,.6); letter-spacing:.06em; text-transform:uppercase; }
+  .pos-total-box .pos-total-value{ font-family:'Fraunces',serif; font-size:2rem; color: var(--gold-light); line-height:1.2; }
+  /* ---------- animated logo emblem ---------- */
+  .logo-mark{ width:44px; height:44px; overflow:visible; flex-shrink:0; }
+  .logo-mark-lg{ width:64px; height:64px; overflow:visible; margin:0 auto 14px; display:block; }
+  .pg-ring{
+    animation:pgBreathe 4.5s ease-in-out infinite;
+    transform-origin:60px 60px;
+  }
+  @keyframes pgBreathe{
+    0%,100%{ opacity:.75; transform:scale(1); }
+    50%{ opacity:1; transform:scale(1.035); }
+  }
+  .pg-hair path{
+    transform-origin:56px 42px;
+    animation:pgSway 4.5s ease-in-out infinite;
+  }
+  .pg-hair path:nth-child(1){ animation-delay:0s; }
+  .pg-hair path:nth-child(2){ animation-delay:.25s; }
+  .pg-hair path:nth-child(3){ animation-delay:.5s; }
+  .pg-hair path:nth-child(4){ animation-delay:.75s; }
+  @keyframes pgSway{
+    0%,100%{ transform:rotate(0deg); }
+    50%{ transform:rotate(-3.5deg) translateX(-1px); }
+  }
+  .pg-crescent{
+    animation:pgGlowPulse 3.2s ease-in-out infinite;
+    transform-origin:60px 60px;
+  }
+  @keyframes pgGlowPulse{
+    0%,100%{ opacity:.55; }
+    50%{ opacity:1; }
+  }
+  .pg-sparkles path{
+    opacity:0;
+    animation:pgTwinkle 3.6s ease-in-out infinite;
+    transform-origin:center;
+  }
+  .pg-sparkles path:nth-child(1){ animation-delay:.1s; }
+  .pg-sparkles path:nth-child(2){ animation-delay:1.1s; }
+  .pg-sparkles path:nth-child(3){ animation-delay:2s; }
+  .pg-sparkles path:nth-child(4){ animation-delay:2.7s; }
+  @keyframes pgTwinkle{
+    0%,100%{ opacity:0; transform:scale(.4); }
+    50%{ opacity:1; transform:scale(1); }
+  }
+  @media (prefers-reduced-motion: reduce){
+    .pg-ring, .pg-hair path, .pg-crescent, .pg-sparkles path{ animation:none !important; opacity:1 !important; }
+  }
+  /* ---------- print receipt ---------- */
+  #receiptPrintArea{ display:none; }
+  @media print{
+    body *{ visibility:hidden; }
+    #receiptPrintArea, #receiptPrintArea *{ visibility:visible; }
+    #receiptPrintArea{
+      display:block; position:absolute; top:0; left:0; width:100%;
+      padding:24px; font-family:'Manrope',sans-serif; color:#000;
+    }
+    .modal-backdrop, header.admin-header, .tabs{ display:none !important; }
+  }
+  .receipt-header{ text-align:center; margin-bottom:16px; }
+  .receipt-header .r-logo{ width:52px; height:52px; margin:0 auto 8px; display:block; }
+  .receipt-header h2{ font-size:1.2rem; margin-bottom:2px; }
+  .receipt-header p{ font-size:.8rem; color:#555; margin:1px 0; }
+  .receipt-divider{ border-top:1px dashed #999; margin:12px 0; }
+  .receipt-table{ width:100%; border-collapse:collapse; font-size:.85rem; }
+  .receipt-table th{ text-align:left; font-size:.7rem; text-transform:uppercase; letter-spacing:.06em; color:#666; padding-bottom:6px; }
+  .receipt-table td{ padding:4px 0; }
+  .receipt-totals{ margin-top:10px; font-size:.9rem; }
+  .receipt-totals .r-row{ display:flex; justify-content:space-between; padding:2px 0; }
+  .receipt-totals .r-grand{ font-weight:700; font-size:1.05rem; border-top:1px solid #333; margin-top:6px; padding-top:6px; }
+  .receipt-footer{ text-align:center; margin-top:20px; font-size:.8rem; color:#555; }
+  .low-stock-banner{
+    background:#fdf1e0; border:1px solid #e8c58a; color:#8c5f1e;
+    border-radius:6px; padding:12px 16px; margin-bottom:18px; font-size:.86rem;
+  }
+  .low-stock-banner b{ display:block; margin-bottom:4px; }
+  .stock-low{ color:var(--danger); font-weight:700; }
+  .stock-ok{ color:var(--ok); font-weight:600; }
+  .movement-plus{ color:var(--ok); font-weight:600; }
+  .movement-minus{ color:var(--danger); font-weight:600; }
+</style>
+</head>
+<body>
+
+<svg style="position:absolute; width:0; height:0; overflow:hidden;" aria-hidden="true">
+  <defs>
+    <symbol id="pgLogoMark" viewBox="0 0 120 120">
+      <defs>
+        <linearGradient id="pgGoldA" x1="0%" y1="0%" x2="100%" y2="100%">
+          <stop offset="0%" stop-color="#e8cf9c"/>
+          <stop offset="55%" stop-color="#c9a05e"/>
+          <stop offset="100%" stop-color="#a8793a"/>
+        </linearGradient>
+        <linearGradient id="pgGoldB" x1="0%" y1="0%" x2="100%" y2="0%">
+          <stop offset="0%" stop-color="#f2e2c2"/>
+          <stop offset="100%" stop-color="#c9a05e"/>
+        </linearGradient>
+      </defs>
+
+      <!-- outer ring -->
+      <circle class="pg-ring" cx="60" cy="60" r="53" fill="none" stroke="url(#pgGoldA)" stroke-width="2"/>
+
+      <!-- crescent glow behind face -->
+      <path class="pg-crescent" d="M78,28 A34,34 0 1 1 78,92 A26,26 0 1 0 78,28 Z" fill="url(#pgGoldA)"/>
+
+      <!-- flowing hair strands -->
+      <g class="pg-hair">
+        <path d="M55,40 C36,42 24,54 22,72 C21,80 24,88 30,93" fill="none" stroke="url(#pgGoldB)" stroke-width="3.4" stroke-linecap="round"/>
+        <path d="M53,39 C33,40 19,50 15,66 C13,75 16,84 23,90" fill="none" stroke="url(#pgGoldB)" stroke-width="2.6" stroke-linecap="round" opacity=".85"/>
+        <path d="M57,42 C41,46 31,58 30,74 C30,81 33,87 38,91" fill="none" stroke="url(#pgGoldB)" stroke-width="2.2" stroke-linecap="round" opacity=".7"/>
+        <path d="M51,38 C29,37 13,45 8,60" fill="none" stroke="url(#pgGoldB)" stroke-width="1.8" stroke-linecap="round" opacity=".55"/>
+      </g>
+
+      <!-- face silhouette (profile facing right) -->
+      <path d="M58,38 C67,38 74,45 75,54 C75.6,60 73,64.5 69,67.5 L71,72 L64,72 C60,76.5 53,76.5 48,72 C41,67 38,58 41,49 C43.5,42.5 50,38 58,38 Z"
+            fill="url(#pgGoldA)"/>
+
+      <!-- sparkles -->
+      <g class="pg-sparkles" fill="url(#pgGoldB)">
+        <path d="M32,20 L34,26 L40,28 L34,30 L32,36 L30,30 L24,28 L30,26 Z"/>
+        <path d="M18,38 L19.5,42 L23.5,43.5 L19.5,45 L18,49 L16.5,45 L12.5,43.5 L16.5,42 Z"/>
+        <path d="M44,16 L45,19 L48,20 L45,21 L44,24 L43,21 L40,20 L43,19 Z"/>
+        <path d="M14,58 L15,61 L18,62 L15,63 L14,66 L13,63 L10,62 L13,61 Z"/>
+      </g>
+    </symbol>
+  </defs>
+</svg>
+
+
+<!-- ============ LOGIN ============ -->
+<div id="loginScreen">
+  <div class="login-box">
+    <svg class="logo-mark-lg" viewBox="0 0 120 120"><use href="#pgLogoMark"></use></svg>
+    <h1>Prestige Glow</h1>
+    <p>Staff &amp; admin dashboard</p>
+    <form id="loginForm">
+      <div class="field">
+        <label for="loginEmail">Email</label>
+        <input id="loginEmail" type="email" placeholder="you@prestigeglow.studio" required autocomplete="username">
+      </div>
+      <div class="field">
+        <label for="loginPassword">Password</label>
+        <input id="loginPassword" type="password" placeholder="••••••••" required autocomplete="current-password">
+      </div>
+      <button type="submit" class="btn">Log In</button>
+      <p class="msg" id="loginMsg"></p>
+    </form>
+  </div>
+</div>
+
+<!-- ============ DASHBOARD ============ -->
+<div id="dashboard">
+  <header class="admin-header">
+    <div style="display:flex; align-items:center; gap:12px;">
+      <svg class="logo-mark" viewBox="0 0 120 120"><use href="#pgLogoMark"></use></svg>
+      <h1>Prestige Glow — Admin</h1>
+    </div>
+    <div style="display:flex; align-items:center; gap:16px;">
+      <span class="who">Logged in as <b id="whoName"></b> <span id="whoRole"></span></span>
+      <button class="btn secondary small" id="logoutBtn">Log Out</button>
+    </div>
+  </header>
+
+  <nav class="tabs">
+    <button class="tab-btn active" data-tab="bookings">Bookings</button>
+    <button class="tab-btn" data-tab="pos">Point of Sale</button>
+    <button class="tab-btn" data-tab="chats">Chat Requests</button>
+    <button class="tab-btn" data-tab="clients">Clients</button>
+    <button class="tab-btn" data-tab="services">Services</button>
+    <button class="tab-btn" data-tab="inventory">Inventory</button>
+    <button class="tab-btn" data-tab="employees" id="employeesTabBtn" style="display:none;">Employees</button>
+  </nav>
+
+  <main>
+    <!-- BOOKINGS -->
+    <section class="panel active" id="panel-bookings">
+      <div class="panel-head"><h2>Bookings</h2></div>
+      <div id="bookingsTableWrap" class="loading">Loading…</div>
+    </section>
+
+    <!-- CHAT REQUESTS -->
+    <section class="panel" id="panel-chats">
+      <div class="panel-head"><h2>Chat Requests</h2></div>
+      <div id="chatsTableWrap" class="loading">Loading…</div>
+    </section>
+
+    <!-- CLIENTS -->
+    <section class="panel" id="panel-clients">
+      <div class="panel-head"><h2>Clients</h2></div>
+      <div id="clientsTableWrap" class="loading">Loading…</div>
+    </section>
+
+    <!-- SERVICES -->
+    <section class="panel" id="panel-services">
+      <div class="panel-head"><h2>Services</h2></div>
+      <div id="servicesTableWrap" class="loading">Loading…</div>
+    </section>
+
+    <!-- POINT OF SALE -->
+    <section class="panel" id="panel-pos">
+      <div class="panel-head">
+        <h2>Point of Sale</h2>
+        <div>
+          <button class="btn small pos-subtab active" data-sub="newsale">New Sale</button>
+          <button class="btn small secondary pos-subtab" data-sub="history">History</button>
+        </div>
+      </div>
+
+      <!-- NEW SALE VIEW -->
+      <div id="pos-newsale">
+        <div class="pos-section-title">1 · Client &amp; Booking</div>
+        <div class="field">
+          <label for="posBooking">Checkout from a booking (optional)</label>
+          <select id="posBooking">
+            <option value="">— Walk-in / no booking —</option>
+          </select>
+        </div>
+
+        <div style="display:flex; gap:14px; flex-wrap:wrap;">
+          <div class="field" style="flex:1; min-width:200px;">
+            <label for="posClientName">Client Name</label>
+            <input id="posClientName" type="text" placeholder="Client name">
+          </div>
+          <div class="field" style="flex:1; min-width:200px;">
+            <label for="posClientPhone">Phone</label>
+            <input id="posClientPhone" type="text" placeholder="Phone number">
+          </div>
+        </div>
+
+        <div class="pos-section-title">2 · Add Services &amp; Products</div>
+        <div style="display:flex; gap:14px; flex-wrap:wrap;">
+          <div class="field" style="flex:1; min-width:220px;">
+            <label for="posServiceSelect">Add a service</label>
+            <div style="display:flex; gap:8px;">
+              <select id="posServiceSelect" style="flex:1;"></select>
+              <button type="button" class="btn small" id="posAddServiceBtn" style="width:auto;">Add</button>
+            </div>
+          </div>
+          <div class="field" style="flex:1; min-width:220px;">
+            <label for="posProductSelect">Add a product</label>
+            <div style="display:flex; gap:8px;">
+              <select id="posProductSelect" style="flex:1;"></select>
+              <button type="button" class="btn small" id="posAddProductBtn" style="width:auto;">Add</button>
+            </div>
+          </div>
+        </div>
+
+        <div class="pos-section-title">3 · Cart</div>
+        <div id="posCartWrap">
+          <div class="empty-state">Cart is empty — add a service or product above.</div>
+        </div>
+
+        <div class="pos-section-title">4 · Checkout</div>
+        <div style="display:flex; gap:14px; flex-wrap:wrap; align-items:flex-end;">
+          <div class="field" style="width:160px;">
+            <label for="posDiscount">Discount (NRs)</label>
+            <input id="posDiscount" type="number" value="0" min="0">
+          </div>
+          <div class="field" style="width:200px;">
+            <label for="posPayment">Payment Method</label>
+            <select id="posPayment">
+              <option value="cash">Cash</option>
+              <option value="esewa">eSewa</option>
+              <option value="khalti">Khalti</option>
+              <option value="card">Card</option>
+            </select>
+          </div>
+          <div class="pos-total-box" style="flex:1;">
+            <div class="pos-total-label">Total Due</div>
+            <div class="pos-total-value" id="posTotal">NRs 0</div>
+          </div>
+        </div>
+
+        <button class="btn" id="posCompleteBtn" style="width:auto; margin-top:20px; padding:14px 30px;">Complete Sale</button>
+        <button class="btn secondary small" id="posPrintBtn" style="width:auto; margin-top:20px; margin-left:10px; display:none;">🖨 Print Receipt</button>
+        <p class="msg" id="posMsg"></p>
+      </div>
+
+      <!-- HISTORY VIEW -->
+      <div id="pos-history" style="display:none;">
+        <div style="margin-bottom:16px; font-size:.9rem; color:var(--text-muted);">
+          Today's total: <b id="posTodayTotal" style="color:var(--text-dark); font-family:'Fraunces',serif; font-size:1.1rem;">NRs 0</b>
+        </div>
+        <div id="salesTableWrap" class="loading">Loading…</div>
+      </div>
+    </section>
+
+    <!-- INVENTORY -->
+    <section class="panel" id="panel-inventory">
+      <div class="panel-head">
+        <h2>Inventory</h2>
+        <div>
+          <button class="btn small inv-subtab active" data-sub="retail">Retail Products</button>
+          <button class="btn small secondary inv-subtab" data-sub="supplies">Back-Bar Supplies</button>
+          <button class="btn small secondary inv-subtab" data-sub="history">Stock History</button>
+        </div>
+      </div>
+
+      <div id="lowStockBanner" style="display:none;" class="low-stock-banner"></div>
+
+      <!-- RETAIL PRODUCTS -->
+      <div id="inv-retail">
+        <div style="text-align:right; margin-bottom:12px;">
+          <button class="btn small" id="addProductBtn" style="width:auto;">+ Add Product</button>
+        </div>
+        <div id="productsTableWrap" class="loading">Loading…</div>
+      </div>
+
+      <!-- BACK-BAR SUPPLIES -->
+      <div id="inv-supplies" style="display:none;">
+        <div style="text-align:right; margin-bottom:12px;">
+          <button class="btn small" id="addSupplyBtn" style="width:auto;">+ Add Supply</button>
+        </div>
+        <div id="suppliesTableWrap" class="loading">Loading…</div>
+      </div>
+
+      <!-- STOCK HISTORY -->
+      <div id="inv-history" style="display:none;">
+        <div id="stockHistoryWrap" class="loading">Loading…</div>
+      </div>
+    </section>
+
+    <!-- EMPLOYEES -->
+    <section class="panel" id="panel-employees">
+      <div class="panel-head">
+        <h2>Employees</h2>
+        <button class="btn small" id="addEmployeeBtn" style="width:auto;">+ Add Employee</button>
+      </div>
+      <div id="employeesTableWrap" class="loading">Loading…</div>
+    </section>
+  </main>
+</div>
+
+<!-- ============ PRINT RECEIPT (hidden, only visible when printing) ============ -->
+<div id="receiptPrintArea"></div>
+
+<!-- ============ ADD PRODUCT MODAL ============ -->
+<div class="modal-backdrop" id="productModal">
+  <div class="modal">
+    <h3>Add Product</h3>
+    <form id="productForm">
+      <div class="field">
+        <label for="prodName">Product Name</label>
+        <input id="prodName" type="text" required>
+      </div>
+      <div class="field">
+        <label for="prodPrice">Price (NRs)</label>
+        <input id="prodPrice" type="number" min="0" required>
+      </div>
+      <div class="field">
+        <label for="prodStock">Starting Stock</label>
+        <input id="prodStock" type="number" min="0" value="0" required>
+      </div>
+      <div class="field">
+        <label for="prodThreshold">Low Stock Warning At</label>
+        <input id="prodThreshold" type="number" min="0" value="5" required>
+      </div>
+      <p class="msg" id="productMsg"></p>
+      <div class="modal-actions">
+        <button type="button" class="btn secondary" id="cancelProductBtn">Cancel</button>
+        <button type="submit" class="btn">Add Product</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<!-- ============ ADD SUPPLY MODAL ============ -->
+<div class="modal-backdrop" id="supplyModal">
+  <div class="modal">
+    <h3>Add Back-Bar Supply</h3>
+    <form id="supplyForm">
+      <div class="field">
+        <label for="supName">Supply Name</label>
+        <input id="supName" type="text" placeholder="e.g. Loreal Hair Color 60ml" required>
+      </div>
+      <div class="field">
+        <label for="supCategory">Category</label>
+        <input id="supCategory" type="text" placeholder="e.g. Hair Color, Shampoo, Disposables">
+      </div>
+      <div class="field">
+        <label for="supUnit">Unit</label>
+        <input id="supUnit" type="text" placeholder="e.g. ml, bottle, box, pcs" value="unit">
+      </div>
+      <div class="field">
+        <label for="supStock">Starting Stock</label>
+        <input id="supStock" type="number" min="0" value="0" required>
+      </div>
+      <div class="field">
+        <label for="supThreshold">Low Stock Warning At</label>
+        <input id="supThreshold" type="number" min="0" value="5" required>
+      </div>
+      <p class="msg" id="supplyMsg"></p>
+      <div class="modal-actions">
+        <button type="button" class="btn secondary" id="cancelSupplyBtn">Cancel</button>
+        <button type="submit" class="btn">Add Supply</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<!-- ============ ADJUST STOCK MODAL ============ -->
+<div class="modal-backdrop" id="adjustModal">
+  <div class="modal">
+    <h3>Adjust Stock — <span id="adjustItemName"></span></h3>
+    <p style="font-size:.85rem; color:var(--text-muted); margin-bottom:16px;">
+      Current stock: <b id="adjustCurrentStock"></b>
+    </p>
+    <form id="adjustForm">
+      <div class="field">
+        <label for="adjustAmount">Change Amount (use a negative number to remove stock)</label>
+        <input id="adjustAmount" type="number" required placeholder="e.g. 20 or -2">
+      </div>
+      <div class="field">
+        <label for="adjustReason">Reason</label>
+        <select id="adjustReason">
+          <option value="restock">Restock</option>
+          <option value="usage">Usage (used during a service)</option>
+          <option value="adjustment">Adjustment / correction</option>
+        </select>
+      </div>
+      <div class="field">
+        <label for="adjustNote">Note (optional)</label>
+        <input id="adjustNote" type="text" placeholder="e.g. Delivery from supplier">
+      </div>
+      <p class="msg" id="adjustMsg"></p>
+      <div class="modal-actions">
+        <button type="button" class="btn secondary" id="cancelAdjustBtn">Cancel</button>
+        <button type="submit" class="btn">Apply</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<!-- ============ ADD EMPLOYEE MODAL ============ -->
+<div class="modal-backdrop" id="employeeModal">
+  <div class="modal">
+    <h3>Add Employee</h3>
+    <form id="employeeForm">
+      <div class="field">
+        <label for="empName">Name</label>
+        <input id="empName" type="text" required>
+      </div>
+      <div class="field">
+        <label for="empEmail">Email</label>
+        <input id="empEmail" type="email" required>
+      </div>
+      <div class="field">
+        <label for="empPassword">Temporary Password</label>
+        <input id="empPassword" type="text" required minlength="6" placeholder="At least 6 characters">
+      </div>
+      <div class="field">
+        <label for="empRole">Role</label>
+        <select id="empRole">
+          <option value="staff">Staff</option>
+          <option value="admin">Admin</option>
+        </select>
+      </div>
+      <p class="msg" id="employeeMsg"></p>
+      <div class="modal-actions">
+        <button type="button" class="btn secondary" id="cancelEmployeeBtn">Cancel</button>
+        <button type="submit" class="btn">Create Login</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<script>
+  const SUPABASE_URL = 'https://qiqtytfrvnnxxbzapoyc.supabase.co';
+  const SUPABASE_KEY = 'sb_publishable_Or943UMDfQi0l8Gim6M-jQ_2A6bKgLz';
+  const sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+
+  let currentEmployee = null;
+
+  // ---------- LOGIN ----------
+  const loginForm = document.getElementById('loginForm');
+  const loginMsg = document.getElementById('loginMsg');
+
+  loginForm.addEventListener('submit', async (e) => {
+    e.preventDefault();
+    loginMsg.textContent = '';
+    loginMsg.className = 'msg';
+    const email = document.getElementById('loginEmail').value;
+    const password = document.getElementById('loginPassword').value;
+
+    const { data, error } = await sb.auth.signInWithPassword({ email, password });
+    if (error) {
+      loginMsg.textContent = 'Login failed: ' + error.message;
+      loginMsg.className = 'msg error';
+      return;
+    }
+    await checkEmployeeAndEnter();
+  });
+
+  async function checkEmployeeAndEnter(){
+    const { data: { user } } = await sb.auth.getUser();
+    if (!user) return;
+
+    const { data: emp, error } = await sb.from('employees').select('*').eq('id', user.id).single();
+    if (error || !emp || !emp.active) {
+      loginMsg.textContent = 'Your account is not authorized for staff access.';
+      loginMsg.className = 'msg error';
+      await sb.auth.signOut();
+      return;
+    }
+    currentEmployee = emp;
+    enterDashboard();
+  }
+
+  function enterDashboard(){
+    document.getElementById('loginScreen').style.display = 'none';
+    document.getElementById('dashboard').style.display = 'block';
+    document.getElementById('whoName').textContent = currentEmployee.name;
+    const roleBadge = document.getElementById('whoRole');
+    roleBadge.innerHTML = `<span class="badge ${currentEmployee.role}">${currentEmployee.role}</span>`;
+    if (currentEmployee.role === 'admin') {
+      document.getElementById('employeesTabBtn').style.display = 'inline-block';
+    }
+    loadBookings();
+    loadChats();
+    loadClients();
+    loadServices();
+    initInventory();
+    initPOS();
+    if (currentEmployee.role === 'admin') loadEmployees();
+  }
+
+  document.getElementById('logoutBtn').addEventListener('click', async () => {
+    await sb.auth.signOut();
+    location.reload();
+  });
+
+  // Auto-login if already have a session
+  (async function(){
+    const { data: { session } } = await sb.auth.getSession();
+    if (session) await checkEmployeeAndEnter();
+  })();
+
+  // ---------- TABS ----------
+  document.querySelectorAll('.tab-btn').forEach(btn => {
+    btn.addEventListener('click', () => {
+      document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+      document.querySelectorAll('.panel').forEach(p => p.classList.remove('active'));
+      btn.classList.add('active');
+      document.getElementById('panel-' + btn.dataset.tab).classList.add('active');
+    });
+  });
+
+  // ---------- BOOKINGS ----------
+  async function loadBookings(){
+    const wrap = document.getElementById('bookingsTableWrap');
+    const { data, error } = await sb.from('bookings').select('*').order('created_at', { ascending:false });
+    if (error) { wrap.innerHTML = `<div class="empty-state">Couldn't load bookings.</div>`; return; }
+    if (!data.length) { wrap.innerHTML = `<div class="empty-state">No bookings yet.</div>`; return; }
+
+    wrap.innerHTML = `<table><thead><tr>
+      <th>Name</th><th>Phone</th><th>Service</th><th>Notes</th><th>Received</th><th>Status</th>
+    </tr></thead><tbody>${data.map(b => `
+      <tr>
+        <td>${escapeHtml(b.client_name)}</td>
+        <td>${escapeHtml(b.client_phone)}</td>
+        <td>${escapeHtml(b.service || '—')}</td>
+        <td>${escapeHtml(b.notes || '—')}</td>
+        <td>${formatDate(b.created_at)}</td>
+        <td>
+          <select data-id="${b.id}" class="booking-status">
+            ${['pending','confirmed','completed','cancelled'].map(s =>
+              `<option value="${s}" ${s===b.status?'selected':''}>${s}</option>`).join('')}
+          </select>
+        </td>
+      </tr>`).join('')}</tbody></table>`;
+
+    wrap.querySelectorAll('.booking-status').forEach(sel => {
+      sel.addEventListener('change', async () => {
+        await sb.from('bookings').update({ status: sel.value }).eq('id', sel.dataset.id);
+      });
+    });
+  }
+
+  // ---------- POINT OF SALE ----------
+  let cart = [];              // { type, name, unit_price, qty }
+  let allServices = [];
+  let allProducts = [];
+  let selectedBookingId = null;
+  let lastCompletedSale = null;
+  let lastCompletedItems = [];
+
+  function initPOS(){
+    document.getElementById('posPrintBtn').addEventListener('click', () => {
+      if (lastCompletedSale) printReceipt(lastCompletedSale, lastCompletedItems);
+    });
+
+    // sub-tab toggle (New Sale / History)
+    document.querySelectorAll('.pos-subtab').forEach(btn => {
+      btn.addEventListener('click', () => {
+        document.querySelectorAll('.pos-subtab').forEach(b => { b.classList.remove('active'); b.classList.add('secondary'); });
+        btn.classList.add('active'); btn.classList.remove('secondary');
+        const isHistory = btn.dataset.sub === 'history';
+        document.getElementById('pos-newsale').style.display = isHistory ? 'none' : 'block';
+        document.getElementById('pos-history').style.display = isHistory ? 'block' : 'none';
+        if (isHistory) loadSalesHistory();
+      });
+    });
+
+    document.getElementById('posAddServiceBtn').addEventListener('click', () => {
+      const sel = document.getElementById('posServiceSelect');
+      const svc = allServices.find(s => s.id === sel.value);
+      if (svc) addToCart('service', svc.name, Number(svc.price) || 0);
+    });
+    document.getElementById('posAddProductBtn').addEventListener('click', () => {
+      const sel = document.getElementById('posProductSelect');
+      const prod = allProducts.find(p => p.id === sel.value);
+      if (prod) addToCart('product', prod.name, Number(prod.price) || 0, prod.id);
+    });
+    document.getElementById('posDiscount').addEventListener('input', renderCart);
+    document.getElementById('posBooking').addEventListener('change', onBookingSelected);
+    document.getElementById('posCompleteBtn').addEventListener('click', completeSale);
+
+    loadPOSBookingOptions();
+    loadPOSPickers();
+  }
+
+  async function loadPOSBookingOptions(){
+    const sel = document.getElementById('posBooking');
+    const { data, error } = await sb.from('bookings').select('*')
+      .in('status', ['pending','confirmed']).order('created_at', { ascending:false });
+    sel.innerHTML = `<option value="">— Walk-in / no booking —</option>`;
+    if (error || !data) return;
+    data.forEach(b => {
+      const opt = document.createElement('option');
+      opt.value = b.id;
+      opt.textContent = `${b.client_name} — ${b.service || 'No service noted'} — ${formatDate(b.created_at)}`;
+      opt.dataset.name = b.client_name;
+      opt.dataset.phone = b.client_phone;
+      opt.dataset.service = b.service || '';
+      sel.appendChild(opt);
+    });
+  }
+
+  function onBookingSelected(){
+    const sel = document.getElementById('posBooking');
+    const opt = sel.selectedOptions[0];
+    if (!opt || !opt.value) {
+      selectedBookingId = null;
+      return;
+    }
+    selectedBookingId = opt.value;
+    document.getElementById('posClientName').value = opt.dataset.name || '';
+    document.getElementById('posClientPhone').value = opt.dataset.phone || '';
+    // convenience: try to auto-add the matching service to the cart
+    const match = allServices.find(s => s.name.trim() === (opt.dataset.service || '').trim());
+    if (match && !cart.some(c => c.type === 'service' && c.name === match.name)) {
+      addToCart('service', match.name, Number(match.price) || 0);
+    }
+  }
+
+  async function loadPOSPickers(){
+    const { data: services } = await sb.from('services').select('*').eq('active', true);
+    allServices = services || [];
+    const svcSel = document.getElementById('posServiceSelect');
+    svcSel.innerHTML = allServices.map(s => `<option value="${s.id}">${escapeHtml(s.name)} — NRs ${s.price || 0}</option>`).join('');
+
+    const { data: products } = await sb.from('products').select('*').eq('active', true);
+    allProducts = products || [];
+    const prodSel = document.getElementById('posProductSelect');
+    prodSel.innerHTML = allProducts.length
+      ? allProducts.map(p => `<option value="${p.id}">${escapeHtml(p.name)} — NRs ${p.price} (${p.stock_qty} in stock)</option>`).join('')
+      : `<option value="">No products yet</option>`;
+  }
+
+  function addToCart(type, name, unit_price, product_id){
+    const existing = cart.find(c => c.type === type && c.name === name);
+    if (existing) existing.qty += 1;
+    else cart.push({ type, name, unit_price, qty: 1, product_id: product_id || null });
+    renderCart();
+  }
+
+  function renderCart(){
+    const wrap = document.getElementById('posCartWrap');
+    if (!cart.length) {
+      wrap.innerHTML = `<div class="empty-state">Cart is empty — add a service or product above.</div>`;
+      updateTotal();
+      return;
+    }
+    wrap.innerHTML = `<table><thead><tr>
+      <th>Item</th><th>Type</th><th>Unit Price</th><th>Qty</th><th>Line Total</th><th></th>
+    </tr></thead><tbody>${cart.map((c, i) => `
+      <tr>
+        <td>${escapeHtml(c.name)}</td>
+        <td>${c.type}</td>
+        <td><input type="number" min="0" value="${c.unit_price}" data-i="${i}" class="cart-price" style="width:90px;"></td>
+        <td><input type="number" min="1" value="${c.qty}" data-i="${i}" class="cart-qty" style="width:60px;"></td>
+        <td>NRs ${(c.unit_price * c.qty).toLocaleString()}</td>
+        <td><button type="button" class="btn small secondary cart-remove" data-i="${i}">✕</button></td>
+      </tr>`).join('')}</tbody></table>`;
+
+    wrap.querySelectorAll('.cart-price').forEach(inp => {
+      inp.addEventListener('input', () => { cart[inp.dataset.i].unit_price = Number(inp.value) || 0; renderCart(); });
+    });
+    wrap.querySelectorAll('.cart-qty').forEach(inp => {
+      inp.addEventListener('input', () => { cart[inp.dataset.i].qty = Math.max(1, Number(inp.value) || 1); renderCart(); });
+    });
+    wrap.querySelectorAll('.cart-remove').forEach(btn => {
+      btn.addEventListener('click', () => { cart.splice(btn.dataset.i, 1); renderCart(); });
+    });
+    updateTotal();
+  }
+
+  function updateTotal(){
+    const subtotal = cart.reduce((sum, c) => sum + c.unit_price * c.qty, 0);
+    const discount = Number(document.getElementById('posDiscount').value) || 0;
+    const total = Math.max(0, subtotal - discount);
+    document.getElementById('posTotal').textContent = `NRs ${total.toLocaleString()}`;
+    return { subtotal, discount, total };
+  }
+
+  async function completeSale(){
+    const msg = document.getElementById('posMsg');
+    msg.textContent = '';
+    msg.className = 'msg';
+
+    if (!cart.length) {
+      msg.textContent = 'Add at least one service or product first.';
+      msg.className = 'msg error';
+      return;
+    }
+
+    const { subtotal, discount, total } = updateTotal();
+    const clientName = document.getElementById('posClientName').value || 'Walk-in';
+    const clientPhone = document.getElementById('posClientPhone').value || '';
+    const payment = document.getElementById('posPayment').value;
+    const btn = document.getElementById('posCompleteBtn');
+    btn.disabled = true;
+    btn.textContent = 'Processing…';
+
+    try {
+      const { data: sale, error: saleErr } = await sb.from('sales').insert({
+        booking_id: selectedBookingId,
+        client_name: clientName,
+        client_phone: clientPhone,
+        subtotal, discount, total,
+        payment_method: payment,
+        staff_id: currentEmployee.id
+      }).select().single();
+      if (saleErr) throw saleErr;
+
+      const itemRows = cart.map(c => ({
+        sale_id: sale.id,
+        item_type: c.type,
+        item_name: c.name,
+        unit_price: c.unit_price,
+        quantity: c.qty,
+        line_total: c.unit_price * c.qty
+      }));
+      const { error: itemsErr } = await sb.from('sale_items').insert(itemRows);
+      if (itemsErr) throw itemsErr;
+
+      // decrement stock for any products sold, and log it in stock history
+      for (const c of cart) {
+        if (c.type === 'product' && c.product_id) {
+          const prod = allProducts.find(p => p.id === c.product_id);
+          if (prod) {
+            await sb.from('products').update({ stock_qty: Math.max(0, prod.stock_qty - c.qty) }).eq('id', c.product_id);
+            await sb.from('stock_movements').insert({
+              item_type: 'product', item_id: c.product_id, item_name: c.name,
+              change_qty: -c.qty, reason: 'sale', note: 'Sold via POS',
+              staff_name: currentEmployee.name
+            });
+          }
+        }
+      }
+      loadLowStockBanner();
+
+      // mark the linked booking as completed
+      if (selectedBookingId) {
+        await sb.from('bookings').update({ status: 'completed' }).eq('id', selectedBookingId);
+      }
+
+      msg.textContent = 'Sale completed!';
+      msg.className = 'msg ok';
+
+      lastCompletedSale = sale;
+      lastCompletedItems = itemRows;
+      document.getElementById('posPrintBtn').style.display = 'inline-block';
+
+      cart = [];
+      selectedBookingId = null;
+      document.getElementById('posClientName').value = '';
+      document.getElementById('posClientPhone').value = '';
+      document.getElementById('posDiscount').value = 0;
+      document.getElementById('posBooking').value = '';
+      renderCart();
+      loadPOSBookingOptions();
+      loadPOSPickers();
+      loadBookings();
+    } catch (err) {
+      console.error('Sale failed:', err);
+      msg.textContent = 'Something went wrong completing this sale.';
+      msg.className = 'msg error';
+    } finally {
+      btn.disabled = false;
+      btn.textContent = 'Complete Sale';
+    }
+  }
+
+  function printReceipt(sale, items){
+    const area = document.getElementById('receiptPrintArea');
+    const dateStr = new Date(sale.created_at).toLocaleString(undefined, {
+      dateStyle: 'medium', timeStyle: 'short'
+    });
+    const itemRows = items.map(it => `
+      <tr>
+        <td>${escapeHtml(it.item_name)}${it.quantity > 1 ? ' x' + it.quantity : ''}</td>
+        <td style="text-align:right;">NRs ${Number(it.line_total).toLocaleString()}</td>
+      </tr>`).join('');
+
+    area.innerHTML = `
+      <div class="receipt-header">
+        <svg class="r-logo" viewBox="0 0 120 120"><use href="#pgLogoMark"></use></svg>
+        <h2>Prestige Glow</h2>
+        <p>Narephat, Kathmandu, Nepal</p>
+        <p>+977 9851275855</p>
+      </div>
+      <div class="receipt-divider"></div>
+      <div style="font-size:.85rem;">
+        <div><b>Client:</b> ${escapeHtml(sale.client_name || 'Walk-in')}</div>
+        ${sale.client_phone ? `<div><b>Phone:</b> ${escapeHtml(sale.client_phone)}</div>` : ''}
+        <div><b>Date:</b> ${dateStr}</div>
+      </div>
+      <div class="receipt-divider"></div>
+      <table class="receipt-table">
+        <thead><tr><th>Item</th><th style="text-align:right;">Amount</th></tr></thead>
+        <tbody>${itemRows}</tbody>
+      </table>
+      <div class="receipt-divider"></div>
+      <div class="receipt-totals">
+        <div class="r-row"><span>Subtotal</span><span>NRs ${Number(sale.subtotal).toLocaleString()}</span></div>
+        ${Number(sale.discount) > 0 ? `<div class="r-row"><span>Discount</span><span>-NRs ${Number(sale.discount).toLocaleString()}</span></div>` : ''}
+        <div class="r-row"><span>Payment Method</span><span style="text-transform:capitalize;">${escapeHtml(sale.payment_method)}</span></div>
+        <div class="r-row r-grand"><span>Total Paid</span><span>NRs ${Number(sale.total).toLocaleString()}</span></div>
+      </div>
+      <div class="receipt-footer">Thank you for visiting Prestige Glow ✦</div>
+    `;
+
+    window.print();
+  }
+
+  async function loadSalesHistory(){
+    const wrap = document.getElementById('salesTableWrap');
+    const { data: sales, error } = await sb.from('sales').select('*').order('created_at', { ascending:false });
+    if (error) { wrap.innerHTML = `<div class="empty-state">Couldn't load sales.</div>`; return; }
+    if (!sales.length) { wrap.innerHTML = `<div class="empty-state">No sales yet.</div>`; document.getElementById('posTodayTotal').textContent = 'NRs 0'; return; }
+
+    const ids = sales.map(s => s.id);
+    const { data: items } = await sb.from('sale_items').select('*').in('sale_id', ids);
+    const itemsBySale = {};
+    (items || []).forEach(it => {
+      if (!itemsBySale[it.sale_id]) itemsBySale[it.sale_id] = [];
+      itemsBySale[it.sale_id].push(it);
+    });
+    const salesById = {};
+    sales.forEach(s => salesById[s.id] = s);
+
+    const todayStr = new Date().toDateString();
+    const todayTotal = sales
+      .filter(s => new Date(s.created_at).toDateString() === todayStr)
+      .reduce((sum, s) => sum + Number(s.total), 0);
+    document.getElementById('posTodayTotal').textContent = `NRs ${todayTotal.toLocaleString()}`;
+
+    wrap.innerHTML = `<table><thead><tr>
+      <th>Date</th><th>Client</th><th>Items</th><th>Payment</th><th>Total</th><th></th>
+    </tr></thead><tbody>${sales.map(s => `
+      <tr>
+        <td>${formatDate(s.created_at)}</td>
+        <td>${escapeHtml(s.client_name || 'Walk-in')}</td>
+        <td>${escapeHtml((itemsBySale[s.id] || []).map(it => `${it.item_name} x${it.quantity}`).join(', '))}</td>
+        <td style="text-transform:capitalize;">${escapeHtml(s.payment_method)}</td>
+        <td>NRs ${Number(s.total).toLocaleString()}</td>
+        <td><button class="btn small secondary history-print" data-id="${s.id}">🖨 Print</button></td>
+      </tr>`).join('')}</tbody></table>`;
+
+    wrap.querySelectorAll('.history-print').forEach(btn => {
+      btn.addEventListener('click', () => {
+        const sale = salesById[btn.dataset.id];
+        const saleItems = itemsBySale[btn.dataset.id] || [];
+        if (sale) printReceipt(sale, saleItems);
+      });
+    });
+  }
+
+  // ---------- INVENTORY ----------
+  function initInventory(){
+    document.querySelectorAll('.inv-subtab').forEach(btn => {
+      btn.addEventListener('click', () => {
+        document.querySelectorAll('.inv-subtab').forEach(b => { b.classList.remove('active'); b.classList.add('secondary'); });
+        btn.classList.add('active'); btn.classList.remove('secondary');
+        const sub = btn.dataset.sub;
+        document.getElementById('inv-retail').style.display = sub === 'retail' ? 'block' : 'none';
+        document.getElementById('inv-supplies').style.display = sub === 'supplies' ? 'block' : 'none';
+        document.getElementById('inv-history').style.display = sub === 'history' ? 'block' : 'none';
+        if (sub === 'history') loadStockHistory();
+      });
+    });
+
+    loadProducts();
+    loadSupplies();
+    loadLowStockBanner();
+  }
+
+  async function loadLowStockBanner(){
+    const banner = document.getElementById('lowStockBanner');
+    const { data: products } = await sb.from('products').select('name, stock_qty, low_stock_threshold').eq('active', true);
+    const { data: supplies } = await sb.from('supplies').select('name, stock_qty, low_stock_threshold').eq('active', true);
+    const low = [
+      ...(products || []).filter(p => p.stock_qty <= p.low_stock_threshold).map(p => p.name),
+      ...(supplies || []).filter(s => s.stock_qty <= s.low_stock_threshold).map(s => s.name)
+    ];
+    if (!low.length) { banner.style.display = 'none'; return; }
+    banner.style.display = 'block';
+    banner.innerHTML = `<b>⚠ ${low.length} item${low.length > 1 ? 's are' : ' is'} running low on stock</b>${escapeHtml(low.join(', '))}`;
+  }
+
+  // ---- Retail Products ----
+  async function loadProducts(){
+    const wrap = document.getElementById('productsTableWrap');
+    const { data, error } = await sb.from('products').select('*').order('created_at', { ascending:true });
+    if (error) { wrap.innerHTML = `<div class="empty-state">Couldn't load products.</div>`; return; }
+    if (!data.length) { wrap.innerHTML = `<div class="empty-state">No products yet. Click "+ Add Product" to start your retail catalog.</div>`; return; }
+
+    wrap.innerHTML = `<table><thead><tr>
+      <th>Name</th><th>Price (NRs)</th><th>Stock</th><th>Low Stock At</th><th>Active</th><th></th><th></th>
+    </tr></thead><tbody>${data.map(p => `
+      <tr data-id="${p.id}">
+        <td><input class="prod-name" value="${escapeAttr(p.name)}"></td>
+        <td><input type="number" class="prod-price" value="${p.price}" style="width:100px;"></td>
+        <td class="${p.stock_qty <= p.low_stock_threshold ? 'stock-low' : 'stock-ok'}">${p.stock_qty}</td>
+        <td><input type="number" class="prod-threshold" value="${p.low_stock_threshold}" style="width:80px;"></td>
+        <td><input type="checkbox" class="prod-active" ${p.active ? 'checked' : ''}></td>
+        <td><button class="btn small prod-save">Save</button></td>
+        <td><button class="btn small secondary prod-adjust" data-name="${escapeAttr(p.name)}" data-stock="${p.stock_qty}">Adjust</button></td>
+      </tr>`).join('')}</tbody></table>`;
+
+    wrap.querySelectorAll('.prod-save').forEach(btn => {
+      btn.addEventListener('click', async () => {
+        const row = btn.closest('tr');
+        const id = row.dataset.id;
+        btn.textContent = 'Saving…';
+        await sb.from('products').update({
+          name: row.querySelector('.prod-name').value,
+          price: Number(row.querySelector('.prod-price').value) || 0,
+          low_stock_threshold: Number(row.querySelector('.prod-threshold').value) || 0,
+          active: row.querySelector('.prod-active').checked
+        }).eq('id', id);
+        btn.textContent = 'Saved ✓';
+        setTimeout(() => { btn.textContent = 'Save'; loadPOSPickers(); loadLowStockBanner(); }, 1200);
+      });
+    });
+    wrap.querySelectorAll('.prod-adjust').forEach(btn => {
+      btn.addEventListener('click', () => {
+        const row = btn.closest('tr');
+        openAdjustModal('product', row.dataset.id, btn.dataset.name, Number(btn.dataset.stock));
+      });
+    });
+  }
+
+  const productModal = document.getElementById('productModal');
+  document.getElementById('addProductBtn').addEventListener('click', () => {
+    productModal.classList.add('open');
+  });
+  document.getElementById('cancelProductBtn').addEventListener('click', () => {
+    productModal.classList.remove('open');
+    document.getElementById('productForm').reset();
+    document.getElementById('productMsg').textContent = '';
+  });
+  document.getElementById('productForm').addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const msg = document.getElementById('productMsg');
+    msg.textContent = 'Adding…';
+    msg.className = 'msg';
+    const startStock = Number(document.getElementById('prodStock').value) || 0;
+    const { data, error } = await sb.from('products').insert({
+      name: document.getElementById('prodName').value,
+      price: Number(document.getElementById('prodPrice').value) || 0,
+      stock_qty: startStock,
+      low_stock_threshold: Number(document.getElementById('prodThreshold').value) || 0
+    }).select().single();
+    if (error) {
+      msg.textContent = 'Something went wrong adding this product.';
+      msg.className = 'msg error';
+      return;
+    }
+    if (startStock > 0) {
+      await sb.from('stock_movements').insert({
+        item_type: 'product', item_id: data.id, item_name: data.name,
+        change_qty: startStock, reason: 'restock', note: 'Initial stock',
+        staff_name: currentEmployee.name
+      });
+    }
+    msg.textContent = 'Product added!';
+    msg.className = 'msg ok';
+    setTimeout(() => {
+      productModal.classList.remove('open');
+      document.getElementById('productForm').reset();
+      msg.textContent = '';
+      loadProducts();
+      loadPOSPickers();
+      loadLowStockBanner();
+    }, 800);
+  });
+
+  // ---- Back-Bar Supplies ----
+  async function loadSupplies(){
+    const wrap = document.getElementById('suppliesTableWrap');
+    const { data, error } = await sb.from('supplies').select('*').order('created_at', { ascending:true });
+    if (error) { wrap.innerHTML = `<div class="empty-state">Couldn't load supplies.</div>`; return; }
+    if (!data.length) { wrap.innerHTML = `<div class="empty-state">No back-bar supplies tracked yet. Click "+ Add Supply" to start.</div>`; return; }
+
+    wrap.innerHTML = `<table><thead><tr>
+      <th>Name</th><th>Category</th><th>Unit</th><th>Stock</th><th>Low Stock At</th><th>Active</th><th></th><th></th>
+    </tr></thead><tbody>${data.map(s => `
+      <tr data-id="${s.id}">
+        <td><input class="sup-name" value="${escapeAttr(s.name)}"></td>
+        <td><input class="sup-category" value="${escapeAttr(s.category || '')}" style="width:120px;"></td>
+        <td><input class="sup-unit" value="${escapeAttr(s.unit)}" style="width:80px;"></td>
+        <td class="${s.stock_qty <= s.low_stock_threshold ? 'stock-low' : 'stock-ok'}">${s.stock_qty} ${escapeHtml(s.unit)}</td>
+        <td><input type="number" class="sup-threshold" value="${s.low_stock_threshold}" style="width:80px;"></td>
+        <td><input type="checkbox" class="sup-active" ${s.active ? 'checked' : ''}></td>
+        <td><button class="btn small sup-save">Save</button></td>
+        <td><button class="btn small secondary sup-adjust" data-name="${escapeAttr(s.name)}" data-stock="${s.stock_qty}">Adjust</button></td>
+      </tr>`).join('')}</tbody></table>`;
+
+    wrap.querySelectorAll('.sup-save').forEach(btn => {
+      btn.addEventListener('click', async () => {
+        const row = btn.closest('tr');
+        const id = row.dataset.id;
+        btn.textContent = 'Saving…';
+        await sb.from('supplies').update({
+          name: row.querySelector('.sup-name').value,
+          category: row.querySelector('.sup-category').value,
+          unit: row.querySelector('.sup-unit').value,
+          low_stock_threshold: Number(row.querySelector('.sup-threshold').value) || 0,
+          active: row.querySelector('.sup-active').checked
+        }).eq('id', id);
+        btn.textContent = 'Saved ✓';
+        setTimeout(() => { btn.textContent = 'Save'; loadLowStockBanner(); }, 1200);
+      });
+    });
+    wrap.querySelectorAll('.sup-adjust').forEach(btn => {
+      btn.addEventListener('click', () => {
+        const row = btn.closest('tr');
+        openAdjustModal('supply', row.dataset.id, btn.dataset.name, Number(btn.dataset.stock));
+      });
+    });
+  }
+
+  const supplyModal = document.getElementById('supplyModal');
+  document.getElementById('addSupplyBtn').addEventListener('click', () => {
+    supplyModal.classList.add('open');
+  });
+  document.getElementById('cancelSupplyBtn').addEventListener('click', () => {
+    supplyModal.classList.remove('open');
+    document.getElementById('supplyForm').reset();
+    document.getElementById('supplyMsg').textContent = '';
+  });
+  document.getElementById('supplyForm').addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const msg = document.getElementById('supplyMsg');
+    msg.textContent = 'Adding…';
+    msg.className = 'msg';
+    const startStock = Number(document.getElementById('supStock').value) || 0;
+    const { data, error } = await sb.from('supplies').insert({
+      name: document.getElementById('supName').value,
+      category: document.getElementById('supCategory').value,
+      unit: document.getElementById('supUnit').value || 'unit',
+      stock_qty: startStock,
+      low_stock_threshold: Number(document.getElementById('supThreshold').value) || 0
+    }).select().single();
+    if (error) {
+      msg.textContent = 'Something went wrong adding this supply.';
+      msg.className = 'msg error';
+      return;
+    }
+    if (startStock > 0) {
+      await sb.from('stock_movements').insert({
+        item_type: 'supply', item_id: data.id, item_name: data.name,
+        change_qty: startStock, reason: 'restock', note: 'Initial stock',
+        staff_name: currentEmployee.name
+      });
+    }
+    msg.textContent = 'Supply added!';
+    msg.className = 'msg ok';
+    setTimeout(() => {
+      supplyModal.classList.remove('open');
+      document.getElementById('supplyForm').reset();
+      msg.textContent = '';
+      loadSupplies();
+      loadLowStockBanner();
+    }, 800);
+  });
+
+  // ---- Adjust Stock (shared by products & supplies) ----
+  let adjustTarget = null; // { itemType, itemId, itemName, currentStock }
+  const adjustModal = document.getElementById('adjustModal');
+
+  function openAdjustModal(itemType, itemId, itemName, currentStock){
+    adjustTarget = { itemType, itemId, itemName, currentStock };
+    document.getElementById('adjustItemName').textContent = itemName;
+    document.getElementById('adjustCurrentStock').textContent = currentStock;
+    document.getElementById('adjustForm').reset();
+    document.getElementById('adjustMsg').textContent = '';
+    adjustModal.classList.add('open');
+  }
+  document.getElementById('cancelAdjustBtn').addEventListener('click', () => {
+    adjustModal.classList.remove('open');
+  });
+  document.getElementById('adjustForm').addEventListener('submit', async (e) => {
+    e.preventDefault();
+    if (!adjustTarget) return;
+    const msg = document.getElementById('adjustMsg');
+    const amount = Number(document.getElementById('adjustAmount').value);
+    if (!amount) { msg.textContent = 'Enter a non-zero amount.'; msg.className = 'msg error'; return; }
+
+    const newStock = Math.max(0, adjustTarget.currentStock + amount);
+    const table = adjustTarget.itemType === 'product' ? 'products' : 'supplies';
+
+    msg.textContent = 'Saving…';
+    msg.className = 'msg';
+    const { error: updErr } = await sb.from(table).update({ stock_qty: newStock }).eq('id', adjustTarget.itemId);
+    if (updErr) { msg.textContent = 'Something went wrong.'; msg.className = 'msg error'; return; }
+
+    await sb.from('stock_movements').insert({
+      item_type: adjustTarget.itemType,
+      item_id: adjustTarget.itemId,
+      item_name: adjustTarget.itemName,
+      change_qty: amount,
+      reason: document.getElementById('adjustReason').value,
+      note: document.getElementById('adjustNote').value,
+      staff_name: currentEmployee.name
+    });
+
+    msg.textContent = 'Stock updated!';
+    msg.className = 'msg ok';
+    setTimeout(() => {
+      adjustModal.classList.remove('open');
+      adjustTarget = null;
+      if (table === 'products') { loadProducts(); loadPOSPickers(); } else { loadSupplies(); }
+      loadLowStockBanner();
+    }, 700);
+  });
+
+  // ---- Stock History ----
+  async function loadStockHistory(){
+    const wrap = document.getElementById('stockHistoryWrap');
+    const { data, error } = await sb.from('stock_movements').select('*').order('created_at', { ascending:false }).limit(200);
+    if (error) { wrap.innerHTML = `<div class="empty-state">Couldn't load stock history.</div>`; return; }
+    if (!data.length) { wrap.innerHTML = `<div class="empty-state">No stock changes logged yet.</div>`; return; }
+
+    wrap.innerHTML = `<table><thead><tr>
+      <th>Date</th><th>Item</th><th>Type</th><th>Change</th><th>Reason</th><th>Note</th><th>By</th>
+    </tr></thead><tbody>${data.map(m => `
+      <tr>
+        <td>${formatDate(m.created_at)}</td>
+        <td>${escapeHtml(m.item_name)}</td>
+        <td style="text-transform:capitalize;">${escapeHtml(m.item_type)}</td>
+        <td class="${m.change_qty >= 0 ? 'movement-plus' : 'movement-minus'}">${m.change_qty >= 0 ? '+' : ''}${m.change_qty}</td>
+        <td style="text-transform:capitalize;">${escapeHtml(m.reason)}</td>
+        <td>${escapeHtml(m.note || '—')}</td>
+        <td>${escapeHtml(m.staff_name || '—')}</td>
+      </tr>`).join('')}</tbody></table>`;
+  }
+
+  // ---------- CHAT REQUESTS ----------
+  async function loadChats(){
+    const wrap = document.getElementById('chatsTableWrap');
+    const { data, error } = await sb.from('chat_requests').select('*').order('created_at', { ascending:false });
+    if (error) { wrap.innerHTML = `<div class="empty-state">Couldn't load chat requests.</div>`; return; }
+    if (!data.length) { wrap.innerHTML = `<div class="empty-state">No chat requests yet.</div>`; return; }
+
+    wrap.innerHTML = `<table><thead><tr>
+      <th>Name</th><th>Phone</th><th>Message</th><th>Received</th><th>Status</th>
+    </tr></thead><tbody>${data.map(c => `
+      <tr>
+        <td>${escapeHtml(c.name || '—')}</td>
+        <td>${escapeHtml(c.phone || '—')}</td>
+        <td>${escapeHtml(c.message || '—')}</td>
+        <td>${formatDate(c.created_at)}</td>
+        <td>
+          <select data-id="${c.id}" class="chat-status">
+            ${['pending','contacted','resolved'].map(s =>
+              `<option value="${s}" ${s===c.status?'selected':''}>${s}</option>`).join('')}
+          </select>
+        </td>
+      </tr>`).join('')}</tbody></table>`;
+
+    wrap.querySelectorAll('.chat-status').forEach(sel => {
+      sel.addEventListener('change', async () => {
+        await sb.from('chat_requests').update({ status: sel.value }).eq('id', sel.dataset.id);
+      });
+    });
+  }
+
+  // ---------- CLIENTS ----------
+  async function loadClients(){
+    const wrap = document.getElementById('clientsTableWrap');
+    const { data, error } = await sb.from('clients').select('*').order('created_at', { ascending:false });
+    if (error) { wrap.innerHTML = `<div class="empty-state">Couldn't load clients.</div>`; return; }
+    if (!data.length) { wrap.innerHTML = `<div class="empty-state">No clients yet. They'll build up here as you add them, or you can track repeat bookings manually.</div>`; return; }
+
+    wrap.innerHTML = `<table><thead><tr>
+      <th>Name</th><th>Phone</th><th>Email</th><th>Notes</th>
+    </tr></thead><tbody>${data.map(c => `
+      <tr>
+        <td>${escapeHtml(c.name)}</td>
+        <td>${escapeHtml(c.phone || '—')}</td>
+        <td>${escapeHtml(c.email || '—')}</td>
+        <td>${escapeHtml(c.notes || '—')}</td>
+      </tr>`).join('')}</tbody></table>`;
+  }
+
+  // ---------- SERVICES ----------
+  async function loadServices(){
+    const wrap = document.getElementById('servicesTableWrap');
+    const { data, error } = await sb.from('services').select('*').order('created_at', { ascending:true });
+    if (error) { wrap.innerHTML = `<div class="empty-state">Couldn't load services.</div>`; return; }
+
+    wrap.innerHTML = `<table><thead><tr>
+      <th>Name</th><th>Description</th><th>Price</th><th>Active</th><th></th>
+    </tr></thead><tbody>${data.map(s => `
+      <tr data-id="${s.id}">
+        <td><input class="svc-name" value="${escapeAttr(s.name)}"></td>
+        <td><input class="svc-desc" value="${escapeAttr(s.description || '')}" style="width:100%;"></td>
+        <td><input class="svc-price" value="${escapeAttr(s.price_npr || '')}"></td>
+        <td><input type="checkbox" class="svc-active" ${s.active ? 'checked' : ''}></td>
+        <td><button class="btn small svc-save">Save</button></td>
+      </tr>`).join('')}</tbody></table>`;
+
+    wrap.querySelectorAll('.svc-save').forEach(btn => {
+      btn.addEventListener('click', async () => {
+        const row = btn.closest('tr');
+        const id = row.dataset.id;
+        btn.textContent = 'Saving…';
+        await sb.from('services').update({
+          name: row.querySelector('.svc-name').value,
+          description: row.querySelector('.svc-desc').value,
+          price_npr: row.querySelector('.svc-price').value,
+          active: row.querySelector('.svc-active').checked
+        }).eq('id', id);
+        btn.textContent = 'Saved ✓';
+        setTimeout(() => btn.textContent = 'Save', 1200);
+      });
+    });
+  }
+
+  // ---------- EMPLOYEES ----------
+  async function loadEmployees(){
+    const wrap = document.getElementById('employeesTableWrap');
+    const { data, error } = await sb.from('employees').select('*').order('created_at', { ascending:true });
+    if (error) { wrap.innerHTML = `<div class="empty-state">Couldn't load employees.</div>`; return; }
+
+    wrap.innerHTML = `<table><thead><tr>
+      <th>Name</th><th>Email</th><th>Role</th><th>Active</th><th></th>
+    </tr></thead><tbody>${data.map(e => `
+      <tr data-id="${e.id}">
+        <td>${escapeHtml(e.name)}</td>
+        <td>${escapeHtml(e.email)}</td>
+        <td>
+          <select class="emp-role" ${e.id === currentEmployee.id ? 'disabled' : ''}>
+            <option value="staff" ${e.role==='staff'?'selected':''}>Staff</option>
+            <option value="admin" ${e.role==='admin'?'selected':''}>Admin</option>
+          </select>
+        </td>
+        <td><input type="checkbox" class="emp-active" ${e.active?'checked':''} ${e.id === currentEmployee.id ? 'disabled' : ''}></td>
+        <td><button class="btn small emp-save" ${e.id === currentEmployee.id ? 'disabled' : ''}>Save</button></td>
+      </tr>`).join('')}</tbody></table>`;
+
+    wrap.querySelectorAll('.emp-save').forEach(btn => {
+      btn.addEventListener('click', async () => {
+        const row = btn.closest('tr');
+        const id = row.dataset.id;
+        btn.textContent = 'Saving…';
+        await sb.from('employees').update({
+          role: row.querySelector('.emp-role').value,
+          active: row.querySelector('.emp-active').checked
+        }).eq('id', id);
+        btn.textContent = 'Saved ✓';
+        setTimeout(() => btn.textContent = 'Save', 1200);
+      });
+    });
+  }
+
+  // ---------- ADD EMPLOYEE MODAL ----------
+  const employeeModal = document.getElementById('employeeModal');
+  document.getElementById('addEmployeeBtn').addEventListener('click', () => {
+    employeeModal.classList.add('open');
+  });
+  document.getElementById('cancelEmployeeBtn').addEventListener('click', () => {
+    employeeModal.classList.remove('open');
+    document.getElementById('employeeForm').reset();
+    document.getElementById('employeeMsg').textContent = '';
+  });
+
+  document.getElementById('employeeForm').addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const msg = document.getElementById('employeeMsg');
+    msg.textContent = 'Creating…';
+    msg.className = 'msg';
+
+    const { data, error } = await sb.functions.invoke('create-employee', {
+      body: {
+        name: document.getElementById('empName').value,
+        email: document.getElementById('empEmail').value,
+        password: document.getElementById('empPassword').value,
+        role: document.getElementById('empRole').value
+      }
+    });
+
+    if (error || data?.error) {
+      msg.textContent = (data && data.error) ? data.error : 'Something went wrong creating this account.';
+      msg.className = 'msg error';
+      return;
+    }
+
+    msg.textContent = 'Employee created!';
+    msg.className = 'msg ok';
+    setTimeout(() => {
+      employeeModal.classList.remove('open');
+      document.getElementById('employeeForm').reset();
+      msg.textContent = '';
+      loadEmployees();
+    }, 900);
+  });
+
+  // ---------- HELPERS ----------
+  function formatDate(iso){
+    if (!iso) return '—';
+    const d = new Date(iso);
+    return d.toLocaleDateString(undefined, { month:'short', day:'numeric', year:'numeric' }) +
+      ' · ' + d.toLocaleTimeString(undefined, { hour:'numeric', minute:'2-digit' });
+  }
+  function escapeHtml(str){
+    if (str === null || str === undefined) return '';
+    return String(str).replace(/[&<>"']/g, m => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]));
+  }
+  function escapeAttr(str){ return escapeHtml(str); }
+</script>
+
+</body>
+</html>
